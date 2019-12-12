@@ -1,0 +1,386 @@
+---
+title: 'GOF'
+author: "Matteo Calgaro"
+date: 'Compiled: `r format(Sys.Date(), "%d %B, %Y")`'
+output:
+  html_document:
+    code_folding: hide
+    df_print: kable
+    number_sections: no
+    theme: united
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style>
+#TOC {
+  top: 1%;
+  opacity: 0.5;
+}
+#TOC:hover {
+  opacity: 1;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#source("additional_functions.R")
+```
+
+# Data loading
+
+Data from HMP16SData and curatedMetagenomicData
+
+```{r}
+library(HMP16SData)
+library(curatedMetagenomicData)
+library(phyloseq)
+library(reshape2)
+library(ggplot2)
+library(cowplot)
+```
+
+## HMP16SData
+
+Keep features with more than 10 counts in more than 1 samples.
+A dataset is composed by samples from a HMP_BODY_SUBSITE.
+
+```{r}
+if(!file.exists("../data/HMP16SData_list.RData")){
+  V35_all <- V35() %>% as_phyloseq()
+  subsites <- unique(V35_all@sam_data$HMP_BODY_SUBSITE)
+  HMP16SData_list <- list()
+  for(i in 1:length(subsites)){
+    cat("Subsite:",subsites[i],"\n")
+    # Keep bodysite
+    ps <- subset_samples(V35_all,HMP_BODY_SUBSITE == subsites[i])
+    # Keep one sample for each Random Subject IDentifier
+    ps <- subset_samples(ps,!duplicated(RSID))
+    ps <- prune_samples(sample_sums(ps) >= 10^3, ps)
+    ps <- filter_taxa(ps,function(x) sum(x>10)>1,1)
+    HMP16SData_list[[i]] <- ps
+    names(HMP16SData_list)[i] <- subsites[i]
+  }
+  save(HMP16SData_list,file = "../data/HMP16SData_list.RData")
+} else load("../data/HMP16SData_list.RData")
+names(HMP16SData_list)
+```
+
+## HMPWMSData
+
+Keep features with more than 10 counts in more than 1 samples.
+A dataset is composed by samples from a body_subsite.
+
+```{r}
+if(!file.exists("../data/HMPWMSData_list.RData")){
+  HMPWMSData_list <- list()
+  HMPWMSData <- curatedMetagenomicData("HMP_2012.metaphlan_bugs_list*",
+                       dryrun = FALSE,
+                       counts = TRUE,
+                       bugs.as.phyloseq = TRUE)
+  for(i in 1:length(HMPWMSData@listData)){
+    body_subsites <- unique(HMPWMSData@listData[[i]]@sam_data$body_subsite)
+    for(j in 1:length(body_subsites)){
+      ps <- HMPWMSData@listData[[i]]
+      # Keep body subsite
+      ps <- subset_samples(ps,body_subsite == body_subsites[j])
+      # Keep 1 sample for each subject
+      ps <- subset_samples(ps,!duplicated(subjectID))
+      ps <- prune_samples(sample_sums(ps) >= 10^3, ps)
+      if(nsamples(ps)>4){
+        ps <- filter_taxa(ps,function(x) sum(x>10)>1,1)
+        cat(body_subsites[j],ntaxa(ps),"x",nsamples(ps),"\n")
+        HMPWMSData_list <- c(HMPWMSData_list,ps)
+      }
+    }
+  }
+  names(HMPWMSData_list) <- c("Anterior Nares","Tongue Dorsum","Buccal Mucosa","Supragingival Plaque","Subgingival Plaque","Left Retroauricolar Crease","Right Retroauricolar Crease","Stool","Posterior Fornix")
+  save(HMPWMSData_list,file = "../data/HMPWMSData_list.RData")
+} else load("../data/HMPWMSData_list.RData")
+names(HMPWMSData_list)
+```
+
+## AllWMSData
+
+Keep features with more than 10 counts in more than 1 samples.
+A dataset is composed by samples from a body site and a single study_condition.
+
+```{r}
+if(!file.exists("../data/AllWMSData_list.RData")){
+  AllWMSData_list <- list()
+  names <- c()
+  AllWMSData <- curatedMetagenomicData("*metaphlan_bugs_list*",
+                       dryrun = FALSE,
+                       counts = TRUE,
+                       bugs.as.phyloseq = TRUE)
+  
+  for(i in 1:length(AllWMSData@listData)){
+    body_sites <- unique(AllWMSData@listData[[i]]@sam_data$body_site)
+    for(j in 1:length(body_sites)){
+      study_conditions <- unique(unlist(AllWMSData@listData[[i]]@sam_data[AllWMSData@listData[[i]]@sam_data$body_site == body_sites[j],"study_condition"]@.Data))
+      study_conditions <- study_conditions[!is.na(study_conditions)]
+        for(k in 1:length(study_conditions)){
+          ps <- AllWMSData@listData[[i]]
+          # Keep body subsite
+          ps <- subset_samples(ps,body_site == body_sites[j] & study_condition == study_conditions[k])
+          # Keep 1 sample for each subject
+          ps <- subset_samples(ps,!duplicated(subjectID))
+          ps <- prune_samples(sample_sums(ps) >= 10^3, ps)
+          if(nsamples(ps)>4){
+            ps <- filter_taxa(ps,function(x) sum(x>10)>1,1)
+            ps <- prune_samples(sample_sums(ps) > 0, ps)
+            name <- paste0(gsub(names(AllWMSData@listData)[[i]], pattern = ".metaphlan_bugs_list.",replacement = "_"),"_",study_conditions[k])
+            cat(name,ntaxa(ps),"x",nsamples(ps),"\n")
+            ps@sam_data$name <- name
+            AllWMSData_list <- c(AllWMSData_list,ps)
+            names <- c(names,name)
+        }
+      }
+    }
+  }
+  names(AllWMSData_list) <- names
+  # Dataset used in the paper
+  names_paper <- c("AsnicarF_2017_milk_control","AsnicarF_2017_stool_control","Bengtsson-PalmeJ_2015_stool_control","BritoIL_2016_oralcavity_control","BritoIL_2016_stool_control","Castro-NallarE_2015_oralcavity_schizophrenia","Castro-NallarE_2015_oralcavity_control","ChngKR_2016_skin_AD","ChngKR_2016_skin_control","DavidLA_2015_stool_control","DavidLA_2015_stool_infectiousgastroenteritis","FengQ_2015_stool_CRC","FengQ_2015_stool_control","FengQ_2015_stool_adenoma","HanniganGD_2017_stool_adenoma","HanniganGD_2017_stool_control","HanniganGD_2017_stool_CRC","Heitz-BuschartA_2016_stool_T1D","Heitz-BuschartA_2016_stool_control","HMP_2012_nasalcavity_control","HMP_2012_oralcavity_control","HMP_2012_skin_control","HMP_2012_stool_control","HMP_2012_vagina_control","KarlssonFH_2013_stool_IGT","KarlssonFH_2013_stool_control","KarlssonFH_2013_stool_T2D","KosticAD_2015_stool_control","LeChatelierE_2013_stool_control","LiJ_2014_stool_control","LiJ_2017_stool_control","LiJ_2017_stool_pre-hypertension","LiJ_2017_stool_hypertension","LiSS_2016_stool_control","LiSS_2016_stool_metabolic_syndrome","LiSS_2016_stool_FMT","LiuW_2016_stool_control","LomanNJ_2013_stool_STEC","LoombaR_2017_stool_fatty_liver","LouisS_2016_stool_control","NielsenHB_2014_stool_control","NielsenHB_2014_stool_IBD","Obregon-TitoAJ_2015_stool_control","OhJ_2014_skin_control","PasolliE_2018_stool_control","QinJ_2012_stool_control","QinJ_2012_stool_T2D","QinN_2014_stool_control","QinN_2014_stool_cirrhosis","RampelliS_2015_stool_control","RaymondF_2016_stool_control","RaymondF_2016_stool_cephalosporins","SchirmerM_2016_stool_control","ShiB_2015_oralcavity_periodontitis","ShiB_2015_oralcavity_SRP","SmitsSA_2017_stool_control","TettAJ_2016_skin_control","TettAJ_2016_skin_psoriasis","ThomasAM_2018a_stool_control","ThomasAM_2018a_stool_adenoma","ThomasAM_2018a_stool_CRC","VatanenT_2016_stool_control","VatanenT_2016_stool_bronchitis","VatanenT_2016_stool_otitis","VatanenT_2016_stool_respiratoryinf","VincentC_2016_stool_control","VincentC_2016_stool_CDI","VogtmannE_2016_stool_control","VogtmannE_2016_stool_CRC","WenC_2017_stool_AS","XieH_2016_stool_control","YuJ_2015_stool_CRC","YuJ_2015_stool_control","ZellerG_2014_stool_control","ZellerG_2014_stool_CRC","ZellerG_2014_stool_adenoma")
+  AllWMSData_list <- AllWMSData_list[names %in% names_paper]
+  save(AllWMSData_list,file = "../data/AllWMSData_list.RData")
+} else load("../data/AllWMSData_list.RData")
+names(AllWMSData_list)
+```
+
+For a total of:
+
+```{r}
+cat("HMP16SData \n")
+length(HMP16SData_list)
+
+cat("HMPWMSData \n")
+length(HMPWMSData_list)
+
+cat("AllWMSData \n")
+length(AllWMSData_list)
+```
+
+Where *nasal_cavity*, *stool* and *vagina* dataset of AllWMSData_list contain the same samples of *Anterior nares*, *Stool* and *Posterior fornix* of HMPWMSData_list.
+
+# Model estimation
+
+Zero-Inflated Negative Binomial (ZINB), Negative Binomial (NB), Truncated Gaussian hurdle model (MAST), Zero-inflated Gaussian (ZIG), Dirichlet-Multinomial (DM)
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+source("additional_functions.R")
+
+if(!file.exists("../data/HMP16SData_models.RData")){
+  HMP16SData_models <- lapply(HMP16SData_list[1:2],function(ps) fit_models(ps, model.matrix( ~ 1, data = data.frame(ps@sam_data))))
+  save(HMP16SData_models,file = "../data/HMP16SData_models.RData")
+} else load("../data/HMP16SData_models.RData")
+
+if(!file.exists("../data/HMPWMSData_models.RData")){
+  HMPWMSData_models <- lapply(HMPWMSData_list,function(ps) fit_models(ps, model.matrix( ~ 1, data = data.frame(ps@sam_data))))
+  save(HMPWMSData_models,file = "../data/HMPWMSData_models.RData")
+} else load("../data/HMPWMSData_models.RData")
+
+if(!file.exists("../data/AllWMSData_models.RData")){
+  AllWMSData_models <- lapply(AllWMSData_list[1:2],function(ps) fit_models(ps, model.matrix( ~ 1, data = data.frame(ps@sam_data))))
+  save(AllWMSData_models,file = "../data/AllWMSData_models.RData")
+} else load("../data/AllWMSData_models.RData")
+```
+
+## Mean values and Zero Probability
+
+All models are fitted on all datasets. For each dataset, the estimated and the observed count value are compared (Mean Differences), and the estimated probability to have a zero is compared to the real proportion of zeroes (Zero Probability Differences). 
+
+```{r}
+HMP16SData_df <- model_to_data.frame(HMP16SData_models)
+HMPWMSData_df <- model_to_data.frame(HMPWMSData_models)
+AllWMSData_df <- model_to_data.frame(AllWMSData_models)
+
+head(HMP16SData_df)
+head(HMPWMSData_df)
+head(AllWMSData_df)
+```
+
+Goodness of fit is evaluated through Root Mean Square Error (RMSE). 
+
+```{r}
+gof_indexes_HMP16S <- compute_RMSE(HMP16SData_df)
+gof_indexes_HMPWMS <- compute_RMSE(HMPWMSData_df)
+gof_indexes_AllWMS <- compute_RMSE(AllWMSData_df)
+
+head(gof_indexes_HMP16S)
+head(gof_indexes_HMPWMS)
+head(gof_indexes_AllWMS)
+```
+
+# Plot
+
+```{r}
+model_colors <- brewer.pal(7,"Set2")
+names(model_colors) <- c("ZINB","NB","HURDLE_default","HURDLE_median","ZIG_default","ZIG_median","DM")
+```
+
+```{r}
+# GOF for all datasets
+gof_indexes_list <- list(AllWMS = gof_indexes_AllWMS,
+                         HMP16S = gof_indexes_HMP16S,
+                         HMPWMS = gof_indexes_HMPWMS)
+gof_indexes <- melt(ldply(gof_indexes_list))
+gof_indexes$type <- "RMSE"
+
+# Model results for all datasets
+df_list <- list(AllWMG = AllWMSData_df,
+                HMP16S = HMP16SData_df,
+                HMPWMG = HMPWMSData_df)
+df_whole <- ldply(lapply(df_list, function(x){
+                  estimated <- c(x$EY,x$EY0)
+                  observed <- c(x$Y,x$Y0)
+                  df_whole <- data.frame(Models = rep(x$Models,2),
+                                         Subsites = rep(x$Subsites,2),
+                                         Observed = observed,
+                                         Estimated = estimated,
+                                         Variable = rep(c("MD","ZPD"),each = length(estimated)/2))
+}))
+```
+
+```{r}
+library(ggplot2)
+
+# Methods for plots
+
+MD_ZPD_plot <- function(subsite,variable,dataset){
+  df_whole$.id <- factor(df_whole$.id,levels = c("HMP16S","HMPWMG","AllWMG"), labels = c("HMP16S","HMPWMS","AllWMS"))
+  ggplot(df_whole[df_whole$Subsites %in% subsite & df_whole$Variable %in% variable & df_whole$.id %in% dataset,],aes(x = Observed, y = Estimated - Observed,color = Models)) + 
+    facet_wrap(~ Variable,nrow = 1, scales = "free") + 
+    # geom_point(size = 0.001) + 
+    geom_smooth(aes(lty = Models),se = FALSE) + 
+    # geom_point(size = 1, shape = 21, alpha = 0.3) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          #strip.text = element_blank(),
+          axis.text.x = element_text(hjust = 1,angle = 45),
+          panel.spacing = unit(0.5, "lines"),
+          plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm")) + 
+    geom_hline(yintercept = 0, color = "darkgrey") + 
+    scale_color_manual(values = model_colors) +
+    xlab("Observed values") + 
+    ylab("Estimated - Observed") +
+    ggtitle(label = paste(variable,"-plot",sep = ""),subtitle = paste(dataset,subsite,sep = "-"))
+}
+
+RMSE_plot <- function(variable,type,subsite,dataset){
+  ord <- order(gof_indexes[gof_indexes$variable %in% variable & gof_indexes$type %in% type & gof_indexes$Subsites %in% subsite & gof_indexes$.id %in% dataset,"value"])
+  ggplot(gof_indexes[gof_indexes$variable %in% variable & gof_indexes$type %in% type & gof_indexes$Subsites %in% subsite & gof_indexes$.id %in% dataset,],aes(x = Models, y = value, fill = Models)) + 
+    facet_wrap(variable ~ Subsites, scales = "free",nrow = 1) +
+    geom_bar(stat = "identity",position = "dodge") + 
+    scale_shape_discrete(solid = FALSE) + 
+    scale_x_discrete(limits = gof_indexes[gof_indexes$variable %in% variable & gof_indexes$type %in% type & gof_indexes$Subsites %in% subsite & gof_indexes$.id %in% dataset,"Models"][ord]) +
+    theme_minimal() +
+    theme(legend.position = "none",
+          strip.text = element_blank(),
+          axis.text.x = element_text(hjust = 1,angle = 45),
+          # axis.text.x = element_blank(),
+          # axis.text.y = element_blank(),
+          panel.spacing = unit(0, "lines"),
+          plot.margin = unit(c(0,0,0,0), "cm")) + 
+    geom_hline(yintercept = 0, color = "darkgrey") + 
+    labs(shape = "Index") +
+    scale_fill_manual(values = model_colors) +
+    # coord_flip() +
+    xlab("Models") + 
+    ylab("RMSE")
+}
+```
+
+```{r}
+g_legend <- get_legend(ggplot(df_whole[df_whole$Subsites %in% "Stool" & df_whole$Variable %in% "MD",],aes(x = Observed, y = Estimated - Observed,color = Models)) + 
+                         facet_wrap(~ Variable,nrow = 1, scales = "free") + 
+                         # geom_point(size = 0.001) + 
+                         geom_smooth(aes(lty = Models),se = FALSE) + 
+                         # geom_point(size = 1, shape = 21, alpha = 0.3) +
+                         theme_minimal() +
+                         theme(legend.position = "bottom") +
+                         guides(color = guide_legend(nrow=1,byrow=TRUE)) +
+                         scale_color_manual(values = model_colors))
+
+a1 <- MD_ZPD_plot(subsite = "Stool",variable = "MD",dataset = "HMP16S")
+a2 <- RMSE_plot(variable = "MD",type = "RMSE",subsite = "Stool",dataset = "HMP16S")
+a <- plot_grid(plotlist = list(a1,a2),align = "v",axis = "lr",nrow = 2)
+
+b1 <- MD_ZPD_plot(subsite = "Stool",variable = "MD",dataset = "HMPWMS")
+b2 <- RMSE_plot(variable = "MD",type = "RMSE",subsite = "Stool",dataset = "HMPWMS")
+b <- plot_grid(plotlist = list(b1,b2),align = "v",axis = "lr",nrow = 2)
+
+d1 <- MD_ZPD_plot(subsite = "Stool",variable = "ZPD",dataset = "HMP16S")
+d2 <- RMSE_plot(variable = "ZPD",type = "RMSE",subsite = "Stool",dataset = "HMP16S")
+d <- plot_grid(plotlist = list(d1,d2),align = "v",axis = "lr",nrow = 2)
+
+e1 <- MD_ZPD_plot(subsite = "Stool",variable = "ZPD",dataset = "HMPWMS")
+e2 <- RMSE_plot(variable = "ZPD",type = "RMSE",subsite = "Stool",dataset = "HMPWMS")
+e <- plot_grid(plotlist = list(e1,e2),align = "v",axis = "lr",nrow = 2)
+```
+
+```{r, fig.width=10, fig.height=12}
+# Heatmap
+gof_indexes_ranked <- ddply(gof_indexes,.variables = ~ Subsites + variable + type + .id,.fun = function(x) rank(x[,"value"]))
+colnames(gof_indexes_ranked) <- c("Subsites","variable","type","Dataset",as.character(unique(gof_indexes$Models)))
+# Average ranks per project name
+all_RMSE_summary <- melt(ddply(gof_indexes_ranked,.variables = ~ variable + type + Dataset, function(x) colMeans(x[,5:11])))
+colnames(all_RMSE_summary) <- c("Variable","Type","Dataset","Model","Rank")
+
+all_RMSE_summary$Dataset <- factor(all_RMSE_summary$Dataset,levels = c("HMP16S","HMPWMS","AllWMS"),labels = c("HMP16S","HMPWMS","AllWMS"),ordered = TRUE)
+
+# Heatmap values
+gof_indexes_values <- ddply(gof_indexes,.variables = ~ Subsites + variable + type + .id,.fun = function(x) x[,"value"])
+colnames(gof_indexes_values) <- c("Subsites","variable","type","Dataset",as.character(unique(gof_indexes$Models)))
+# Average mean per method
+all_RMSE_summary_values <- melt(ddply(gof_indexes_values,.variables = ~ variable + type + Dataset, function(x) colMeans(x[,5:11])))
+colnames(all_RMSE_summary_values) <- c("Variable","Type","Dataset","Model","Value")
+
+all_RMSE_summary$Value <- all_RMSE_summary_values$Value
+
+
+g_legend_heat <- get_legend(ggplot(all_RMSE_summary[all_RMSE_summary$Type == "RMSE" & all_RMSE_summary$Variable == "ZPD",], aes(x = Dataset, y = Model, fill = Rank)) +
+  geom_tile(height = 0.8, width = 0.8,) + 
+  theme_minimal() + 
+  scale_fill_distiller(palette = "RdYlBu") +
+  theme(legend.position = "bottom",
+        panel.grid = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  guides(fill = guide_colorbar()) + 
+  labs(fill = "Mean Rank:"))
+
+plot_heat <- function(variable,type, digits = 1){
+  ord <- order(ddply(all_RMSE_summary[all_RMSE_summary$Type==type & all_RMSE_summary$Variable == variable,],.variables = ~ Model, function(x) mean(x[,"Rank"]))$V1)
+  ggplot(all_RMSE_summary[all_RMSE_summary$Type == type & all_RMSE_summary$Variable == variable,], aes(x = Dataset, y = Model, fill = Rank)) +
+    geom_tile(height = 0.8, width = 0.8) + 
+    geom_text(aes(x = Dataset, y = Model, label=ifelse(Value<0.005,"<0.01",round(Value,digits = digits)))) +
+    coord_equal() +
+    #facet_wrap(~ Dataset, labeller = label_wrap_gen(width=10)) +
+    theme_minimal() + 
+    scale_y_discrete(limits = levels(all_RMSE_summary$Model)[ord]) +
+    scale_fill_distiller(palette = "RdYlBu") +
+    theme(legend.position = "none",
+          panel.grid = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1)) +
+    ggtitle(label = paste("Mean",type,"ranks for",variable),subtitle = "16S and WMS datasets") +
+    guides(fill = guide_colorbar()) + 
+    labs(fill = "Mean Rank:") + xlab("Dataset")
+}
+
+c <- plot_heat(variable = "MD",type = "RMSE", digits = 1)
+f <- plot_heat(variable = "ZPD",type = "RMSE", digits = 2)
+
+abde <- plot_grid(plotlist = list(a,b,d,e),nrow = 2,ncol = 2,labels = c("a","b","d","e"))
+cf <- plot_grid(plotlist = list(c,f),nrow = 2, labels = c("c","f"))
+
+abde_legend <- plot_grid(plotlist = list(abde,g_legend),nrow = 2, rel_heights = c(1,0.1))
+cf_legend <- plot_grid(plotlist = list(cf,g_legend_heat),nrow = 2, rel_heights = c(1,0.1))
+
+fig <- plot_grid(plotlist = list(abde_legend,cf_legend),ncol = 2,rel_widths = c(1,0.6))
+fig
+```
+
+
+
+
