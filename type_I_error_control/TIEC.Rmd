@@ -1,0 +1,97 @@
+---
+title: 'Type I Error Control'
+author: "Matteo Calgaro"
+date: 'Compiled: `r format(Sys.Date(), "%d %B, %Y")`'
+output:
+  html_document:
+    code_folding: hide
+    df_print: kable
+    number_sections: no
+    theme: united
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style>
+#TOC {
+  top: 1%;
+  opacity: 0.5;
+}
+#TOC:hover {
+  opacity: 1;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#source("additional_functions.R")
+```
+
+# Data loading
+
+Data from HMP16SData and curatedMetagenomicData
+
+```{r}
+library(HMP16SData)
+library(curatedMetagenomicData)
+library(phyloseq)
+library(reshape2)
+library(ggplot2)
+library(cowplot)
+```
+
+Choose samples with the same Random Subject Identifier (RSID) for HMP16S and HMPWMS.
+
+```{r}
+### STOOL
+## WMS Data
+if(!file.exists("../data/Stool_16S_WMS.RData")){
+  HMPWMS <- curatedMetagenomicData("HMP_2012.metaphlan_bugs_list*",
+                                  dryrun = FALSE,
+                                  counts = TRUE,
+                                  bugs.as.phyloseq = TRUE)
+  psWMS_Stool <- subset_samples(HMPWMS$HMP_2012.metaphlan_bugs_list.stool, !duplicated(subjectID))
+  psWMG_Stool <- prune_samples(sample_sums(psWMS_Stool) >= 10^6, psWMS_Stool)
+  ## 16S Data
+  ps16S_Stool <- V35() %>% subset(select = HMP_BODY_SUBSITE == "Stool" & VISITNO == 1) %>% as_phyloseq()
+  ps16S_Stool <- subset_samples(ps16S_Stool,!duplicated(RSID))
+  ps16S_Stool <- prune_samples(sample_sums(ps16S_Stool) >= 10^3, ps16S_Stool)
+  
+  # SRS in both WMS and 16S
+  both_16S_WMS <- match(ps16S_Stool@sam_data$SRS_SAMPLE_ID,rownames(psWMS_Stool@sam_data))
+  ps16S <- subset_samples(ps16S_Stool,!is.na(both_16S_WMS))
+  psWMS <- subset_samples(psWMS_Stool,psWMS_Stool@sam_data$subjectID %in% paste0("HMP_2012_",ps16S@sam_data$RSID))
+  ord <- match(ps16S@sam_data$SRS_SAMPLE_ID,rownames(psWMS@sam_data))
+  psWMS@otu_table <- psWMS@otu_table[,ord]
+  psWMS@sam_data <- psWMS@sam_data[ord,]
+  
+  Stool_WMS <- filter_taxa(psWMS,function(x) sum(x>10)>1,1)
+  Stool_16S <- filter_taxa(ps16S,function(x) sum(x>10)>1,1)
+  
+  Stool_16S_WMS <- list(Stool_16S = Stool_16S,Stool_WMS = Stool_WMS)
+  save(Stool_16S_WMS,file = "../data/Stool_16S_WMS.RData")
+} else load(file = "../data/Stool_16S_WMS.RData")
+
+ps_list <- Stool_16S_WMS
+```
+
+# Mock dataset creation
+
+```{r subsetting, echo=FALSE}
+ps_list <- list()
+set.seed(123)
+for(i in 1:10){
+  grps <- rep("grp1",nsamples(ps))
+  grps[sample(1:nsamples(ps),size = 20)] <- "grp2"
+  ps_obj <- ps
+  ps_obj@sam_data$grp <- as.factor(grps)
+  ps_list <- c(ps_list,ps_obj)
+}
+names(ps_list) <- paste0("Comparison",1:10)
+```
+
+
+
+
