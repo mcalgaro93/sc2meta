@@ -1,0 +1,409 @@
+---
+title: 'Consistency and Replicability'
+author: "Matteo Calgaro"
+date: 'Compiled: `r format(Sys.Date(), "%d %B, %Y")`'
+output:
+  html_document:
+    code_folding: hide
+    df_print: kable
+    number_sections: no
+    theme: united
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style>
+#TOC {
+  top: 1%;
+  opacity: 0.5;
+}
+#TOC:hover {
+  opacity: 1;
+}
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data loading
+
+Data from HMP16SData and curatedMetagenomicData
+
+```{r}
+library(HMP16SData)
+library(curatedMetagenomicData)
+library(plyr)
+library(phyloseq)
+library(reshape2)
+library(ggplot2)
+library(ggpubr)
+library(vegan)
+library(cowplot)
+source("additional_functions.R")
+```
+
+## 16S Datasets
+
+```{r}
+if(!file.exists("../data/16Sdatasets_for_replicability.RData")){
+  # Low diversity
+  A = "Supragingival Plaque"
+  B = "Subgingival Plaque"
+  Subgingival_Supragingival_16S <- generate_dataset_16S(A,B,seed = 2, prop = c(0.5,0.5))
+  
+  # Mid diversity
+  A = "Attached Keratinized Gingiva"
+  B = "Buccal Mucosa"
+  Gingiva_Mucosa_16S <- generate_dataset_16S(A,B,seed = 1, prop = c(0.5,0.5))
+  
+  # High diversity
+  A = "Stool"
+  B = "Tongue Dorsum"
+  Stool_TongueDorsum_16S <- generate_dataset_16S(A = "Stool",B = "Tongue Dorsum",seed = 1, prop = c(0.4,0.6))
+  
+  ps_list_16S <- list(Stool_TongueDorsum = Stool_TongueDorsum_16S,
+                      Gingiva_Mucosa = Gingiva_Mucosa_16S,
+                      Subgingival_Supragingival = Subgingival_Supragingival_16S)
+  save(ps_list_16S,file = "../data/16Sdatasets_for_replicability.RData")
+} else load("../data/16Sdatasets_for_replicability.RData")
+```
+
+## WMS Datasets
+
+```{r}
+if(!file.exists("../data/WMSdatasets_for_replicability.RData")){
+  # Low diversity
+  ZellerGData <- curatedMetagenomicData("ZellerG_2014.metaphlan_bugs_list*",
+                      dryrun = FALSE,
+                      counts = TRUE,
+                      bugs.as.phyloseq = TRUE)
+  psAB <- subset_samples(ZellerGData$ZellerG_2014.metaphlan_bugs_list.stool, study_condition != "adenoma")
+  psAB <- prune_samples(sample_sums(psAB) >= 10^3, psAB)
+  CRC_WMS <- filter_taxa(psAB,function(x) sum(x>0)>0,1)
+  # Mid diversity
+  Castro_NallarEData <- curatedMetagenomicData("Castro-NallarE_2015.metaphlan_bugs_list*",
+                      dryrun = FALSE,
+                      counts = TRUE,
+                      bugs.as.phyloseq = TRUE)
+  psAB <- Castro_NallarEData$`Castro-NallarE_2015.metaphlan_bugs_list.oralcavity`
+  psAB <- prune_samples(sample_sums(psAB) >= 10^6, psAB)
+  Schizophrenia_WMS <- filter_taxa(psAB,function(x) sum(x>0)>0,1)
+  
+  # High diversity 
+  HMPData <- curatedMetagenomicData("HMP_2012.metaphlan_bugs_list*",
+                      dryrun = FALSE,
+                      counts = TRUE,
+                      bugs.as.phyloseq = TRUE)
+  # Selecting Tongue Dorsum
+  psA <- subset_samples(HMPData$HMP_2012.metaphlan_bugs_list.oralcavity, body_subsite == "tongue_dorsum")
+  # Selecting Stool
+  psB <- subset_samples(HMPData$HMP_2012.metaphlan_bugs_list.stool, !duplicated(subjectID))
+  # Keep one sample per individual
+  psA <- subset_samples(psA, !duplicated(subjectID))
+  psB <- subset_samples(psB, !duplicated(subjectID))
+  # Pruning
+  psA <- prune_samples(sample_sums(psA) > 10^6, psA)
+  psB <- prune_samples(sample_sums(psB) > 10^6, psB)
+  
+  Stool_TongueDorsum_WMS <- generate_dataset_WMS(psA = psA,psB = psB,seed = 1,prop = c(0.5,0.5))
+  ps_list_WMS <- list(Stool_TongueDorsum = Stool_TongueDorsum_WMS,
+                      Schizophrenia = Schizophrenia_WMS,
+                      CRC = CRC_WMS)
+  save(ps_list_WMS,file = "../data/WMSdatasets_for_replicability.RData")
+} else load("../data/WMSdatasets_for_replicability.RData")
+```
+
+# Alpha diversity
+
+## 16S datasets
+
+```{r, fig.width=10, fig.height=5}
+plot_grid(plotlist = lapply(ps_list_16S, alpha_16S),nrow = 1,align = "h")
+```
+
+## WMS datasets
+
+```{r}
+plot_grid(plotlist = list(alpha_WMS(ps_list_WMS$Stool_TongueDorsum,variable = "body_subsite"),alpha_WMS(ps_list_WMS$Schizophrenia,variable = "study_condition"),alpha_WMS(ps_list_WMS$CRC,variable = "study_condition")),align = "h",nrow = 1)
+```
+
+# Beta diversity
+
+For beta diversity and all the analyses below we use filtered phyloseq objects, e.g. features with more than 10 counts in more than 1 sample.
+
+```{r}
+if(!file.exists("../data/16Sdatasets_for_replicability_filtered.RData")){
+  ps_list_16S <- lapply(ps_list_16S,function(ps){
+    filter_taxa(ps,function(x) sum(x>10)>1,1)
+  })
+  save(ps_list_16S,file = "../data/16Sdatasets_for_replicability_filtered.RData")
+} else load(file = "../data/16Sdatasets_for_replicability_filtered.RData")
+
+if(!file.exists("../data/WMSdatasets_for_replicability_filtered.RData")){
+  ps_list_WMS <- lapply(ps_list_WMS,function(ps){
+    filter_taxa(ps,function(x) sum(x>10)>1,1)
+  })
+  save(ps_list_16S,file = "../data/WMSdatasets_for_replicability_filtered.RData")
+} else load("../data/WMSdatasets_for_replicability_filtered.RData")
+
+cat("16S \n")
+ps_list_16S
+cat("WMS \n")
+ps_list_WMS
+```
+
+## 16S datasets
+
+```{r, fig.width=6, fig.height=14}
+plot_grid(plotlist = list(plot_grid(plotlist = compute_MDS(ps_list_16S$Stool_TongueDorsum,normalization = "TSS",color = "HMP_BODY_SUBSITE"),nrow = 2, rel_heights = c(1,0.2)),
+plot_grid(plotlist = compute_MDS(ps_list_16S$Gingiva_Mucosa,normalization = "TSS",color = "HMP_BODY_SUBSITE"),nrow = 2, rel_heights = c(1,0.2)),
+plot_grid(plotlist = compute_MDS(ps_list_16S$Subgingival_Supragingival,normalization = "TSS",color = "HMP_BODY_SUBSITE"),nrow = 2, rel_heights = c(1,0.2))),nrow = 3)
+```
+
+## WMS datasets
+
+```{r, fig.width=6, fig.height=14}
+plot_grid(plotlist = list(plot_grid(plotlist = compute_MDS(ps_list_WMS$Stool_TongueDorsum,normalization = "TSS",color = "body_subsite",names = "body_subsite"),nrow = 2, rel_heights = c(1,0.2)),
+plot_grid(plotlist = compute_MDS(ps_list_WMS$Schizophrenia,normalization = "TSS",color = "study_condition", names = "study_condition"),nrow = 2, rel_heights = c(1,0.2)),
+plot_grid(plotlist = compute_MDS(ps_list_WMS$CRC,normalization = "TSS",color = "study_condition", names = "study_condition"),nrow = 2, rel_heights = c(1,0.2))),nrow = 3)
+```
+
+# Consistency and Replicability
+
+## Subsetting in 10 datasets
+
+### WMS datasets
+
+```{r}
+if(!file.exists("../data/WMSsubsets_replicability_WMS.RData")){
+  # low diversity
+  ps = ps_list_WMS$CRC
+  grp1_name = "CRC"
+  grp2_name = "control"
+  variable_name = "study_condition"
+  index_1 <- which(ps@sam_data[,variable_name] == grp1_name)
+  index_2 <- which(ps@sam_data[,variable_name] == grp2_name)
+  # If one of index lists is bigger than the other, we select only the first n indexes for both lists
+  # So index_1 and index_2 lists are of equal lengths
+  min_length <- min(length(index_1),length(index_2))
+  index_1 <- index_1[1:min_length]
+  index_2 <- index_2[1:min_length]
+  half_1_2 <- rep(min_length/2,2)
+  names(half_1_2) <- c(grp1_name,grp2_name)
+  ps <- subset_samples(ps, subjectID %in% ps@sam_data$subjectID[c(index_1,index_2)])
+  ps_list <- list()
+  set.seed(123)
+  for(i in 1:10){
+    grp1 <- sample(index_1,size = half_1_2[grp1_name],replace = FALSE)
+    grp2 <- sample(index_2,size = half_1_2[grp2_name],replace = FALSE)
+    ID <- list(ps@sam_data$subjectID[c(grp1,grp2)],
+               ps@sam_data$subjectID[-c(grp1,grp2)])
+    ps_list[[i]] <- list()
+    for(j in 1:length(ID)){
+      ps_obj <- subset_samples(ps,subjectID %in% ID[[j]])
+      ps_obj@sam_data$grp <- as.factor(ifelse(ps_obj@sam_data[,variable_name]==grp1_name,"grp1","grp2"))
+      ps_obj <- filter_taxa(ps_obj,function(x) sum(x>1)>1,1)
+      ps_list[[i]][[j]] <- ps_obj
+    }
+    names(ps_list[[i]]) <- paste0("Subset",1:2)
+  }
+  names(ps_list) <- paste0("Comparison",1:10)
+  CRC_control <- ps_list
+  
+  # Mid diversity
+  
+  ps = ps_list_WMS$Schizophrenia
+  grp1_name = "schizophrenia"
+  grp2_name = "control"
+  variable_name = "study_condition"
+  index_1 <- which(ps@sam_data[,variable_name] == grp1_name)
+  index_2 <- which(ps@sam_data[,variable_name] == grp2_name)
+  # If one of index lists is bigger than the other, we select only the first n indexes for both lists
+  # So index_1 and index_2 lists are of equal lengths
+  min_length <- min(length(index_1),length(index_2))
+  index_1 <- index_1[1:min_length]
+  index_2 <- index_2[1:min_length]
+  half_1_2 <- rep(min_length/2,2)
+  names(half_1_2) <- c(grp1_name,grp2_name)
+  ps <- subset_samples(ps, subjectID %in% ps@sam_data$subjectID[c(index_1,index_2)])
+  ps_list <- list()
+  set.seed(123)
+  for(i in 1:10){
+    grp1 <- sample(index_1,size = half_1_2[grp1_name],replace = FALSE)
+    grp2 <- sample(index_2,size = half_1_2[grp2_name],replace = FALSE)
+    ID <- list(ps@sam_data$subjectID[c(grp1,grp2)],
+               ps@sam_data$subjectID[-c(grp1,grp2)])
+    ps_list[[i]] <- list()
+    for(j in 1:length(ID)){
+      ps_obj <- subset_samples(ps,subjectID %in% ID[[j]])
+      ps_obj@sam_data$grp <- as.factor(ifelse(ps_obj@sam_data[,variable_name]==grp1_name,"grp1","grp2"))
+      ps_obj <- filter_taxa(ps_obj,function(x) sum(x>1)>1,1)
+      ps_list[[i]][[j]] <- ps_obj
+    }
+    names(ps_list[[i]]) <- paste0("Subset",1:2)
+  }
+  names(ps_list) <- paste0("Comparison",1:10)
+  schizophrenia_control <- ps_list
+  
+  # High diversity
+  
+  ps = ps_list_WMS$Stool_TongueDorsum
+  grp1_name = "tongue_dorsum"
+  grp2_name = "stool"
+  variable_name = "body_subsite"
+  index_1 <- which(ps@sam_data[,variable_name] == grp1_name)
+  index_2 <- which(ps@sam_data[,variable_name] == grp2_name)
+  # If one of index lists is bigger than the other, we select only the first n indexes for both lists
+  # So index_1 and index_2 lists are of equal lengths
+  min_length <- min(length(index_1),length(index_2))
+  index_1 <- index_1[1:min_length]
+  index_2 <- index_2[1:min_length]
+  half_1_2 <- rep(min_length/2,2)
+  names(half_1_2) <- c(grp1_name,grp2_name)
+  ps <- subset_samples(ps, subjectID %in% ps@sam_data$subjectID[c(index_1,index_2)])
+  ps_list <- list()
+  set.seed(123)
+  for(i in 1:10){
+    grp1 <- sample(index_1,size = half_1_2[grp1_name],replace = FALSE)
+    grp2 <- sample(index_2,size = half_1_2[grp2_name],replace = FALSE)
+    ID <- list(ps@sam_data$subjectID[c(grp1,grp2)],
+               ps@sam_data$subjectID[-c(grp1,grp2)])
+    ps_list[[i]] <- list()
+    for(j in 1:length(ID)){
+      ps_obj <- subset_samples(ps,subjectID %in% ID[[j]])
+      ps_obj@sam_data$grp <- as.factor(ifelse(ps_obj@sam_data[,variable_name]==grp1_name,"grp1","grp2"))
+      ps_obj <- filter_taxa(ps_obj,function(x) sum(x>1)>1,1)
+      ps_list[[i]][[j]] <- ps_obj
+    }
+    names(ps_list[[i]]) <- paste0("Subset",1:2)
+  }
+  names(ps_list) <- paste0("Comparison",1:10)
+  tonguedorsum_stool <- ps_list
+  
+  subsets_consistency_replicability_WMS <- list(CRC_control = CRC_control,
+                                                schizophrenia_control = schizophrenia_control,
+                                                tonguedorsum_stool = tonguedorsum_stool)
+  save(subsets_consistency_replicability_WMS,file = "../data/WMSsubsets_replicability.RData")
+} else load(file = "../data/WMSsubsets_replicability_WMS.RData")
+```
+
+### 16S datasets
+
+```{r}
+if(!file.exists("../data/16Ssubsets_replicability.RData")){
+  # low diversity
+  ps = ps_list_16S$Subgingival_Supragingival
+  ps@sam_data$subjectID <- ps@sam_data$RSID
+  grp1_name = "Supragingival Plaque"
+  grp2_name = "Subgingival Plaque"
+  variable_name = "HMP_BODY_SUBSITE"
+  index_1 <- which(ps@sam_data[,variable_name] == grp1_name)
+  index_2 <- which(ps@sam_data[,variable_name] == grp2_name)
+  # If one of index lists is bigger than the other, we select only the first n indexes for both lists
+  # So index_1 and index_2 lists are of equal lengths
+  min_length <- min(length(index_1),length(index_2))
+  index_1 <- index_1[1:min_length]
+  index_2 <- index_2[1:min_length]
+  half_1_2 <- rep(min_length/2,2)
+  names(half_1_2) <- c(grp1_name,grp2_name)
+  ps <- subset_samples(ps, subjectID %in% ps@sam_data$subjectID[c(index_1,index_2)])
+  ps_list <- list()
+  set.seed(123)
+  for(i in 1:10){
+    grp1 <- sample(index_1,size = half_1_2[grp1_name],replace = FALSE)
+    grp2 <- sample(index_2,size = half_1_2[grp2_name],replace = FALSE)
+    ID <- list(ps@sam_data$subjectID[c(grp1,grp2)],
+               ps@sam_data$subjectID[-c(grp1,grp2)])
+    ps_list[[i]] <- list()
+    for(j in 1:length(ID)){
+      ps_obj <- subset_samples(ps,subjectID %in% ID[[j]])
+      ps_obj@sam_data$grp <- as.factor(ifelse(ps_obj@sam_data[,variable_name]==grp1_name,"grp1","grp2"))
+      ps_obj <- filter_taxa(ps_obj,function(x) sum(x>1)>1,1)
+      ps_list[[i]][[j]] <- ps_obj
+    }
+    names(ps_list[[i]]) <- paste0("Subset",1:2)
+  }
+  names(ps_list) <- paste0("Comparison",1:10)
+  subgingival_supragingival <- ps_list
+  
+  # Mid diversity
+  
+  ps = ps_list_16S$Gingiva_Mucosa
+  ps@sam_data$subjectID <- ps@sam_data$RSID
+  grp2_name = "Attached Keratinized Gingiva"
+  grp1_name = "Buccal Mucosa"
+  variable_name = "HMP_BODY_SUBSITE"
+  index_1 <- which(ps@sam_data[,variable_name] == grp1_name)
+  index_2 <- which(ps@sam_data[,variable_name] == grp2_name)
+  # If one of index lists is bigger than the other, we select only the first n indexes for both lists
+  # So index_1 and index_2 lists are of equal lengths
+  min_length <- min(length(index_1),length(index_2))
+  index_1 <- index_1[1:min_length]
+  index_2 <- index_2[1:min_length]
+  half_1_2 <- rep(min_length/2,2)
+  names(half_1_2) <- c(grp1_name,grp2_name)
+  ps <- subset_samples(ps, subjectID %in% ps@sam_data$subjectID[c(index_1,index_2)])
+  ps_list <- list()
+  set.seed(123)
+  for(i in 1:10){
+    grp1 <- sample(index_1,size = half_1_2[grp1_name],replace = FALSE)
+    grp2 <- sample(index_2,size = half_1_2[grp2_name],replace = FALSE)
+    ID <- list(ps@sam_data$subjectID[c(grp1,grp2)],
+               ps@sam_data$subjectID[-c(grp1,grp2)])
+    ps_list[[i]] <- list()
+    for(j in 1:length(ID)){
+      ps_obj <- subset_samples(ps,subjectID %in% ID[[j]])
+      ps_obj@sam_data$grp <- as.factor(ifelse(ps_obj@sam_data[,variable_name]==grp1_name,"grp1","grp2"))
+      ps_obj <- filter_taxa(ps_obj,function(x) sum(x>1)>1,1)
+      ps_list[[i]][[j]] <- ps_obj
+    }
+    names(ps_list[[i]]) <- paste0("Subset",1:2)
+  }
+  names(ps_list) <- paste0("Comparison",1:10)
+  gingiva_mucosa <- ps_list
+  
+  # High diversity
+  
+  ps = ps_list_16S$Stool_TongueDorsum
+  ps@sam_data$subjectID <- ps@sam_data$RSID
+  grp2_name = "Stool"
+  grp1_name = "Tongue Dorsum"
+  variable_name = "HMP_BODY_SUBSITE"
+  index_1 <- which(ps@sam_data[,variable_name] == grp1_name)
+  index_2 <- which(ps@sam_data[,variable_name] == grp2_name)
+  # If one of index lists is bigger than the other, we select only the first n indexes for both lists
+  # So index_1 and index_2 lists are of equal lengths
+  min_length <- min(length(index_1),length(index_2))
+  index_1 <- index_1[1:min_length]
+  index_2 <- index_2[1:min_length]
+  half_1_2 <- rep(min_length/2,2)
+  names(half_1_2) <- c(grp1_name,grp2_name)
+  ps <- subset_samples(ps, subjectID %in% ps@sam_data$subjectID[c(index_1,index_2)])
+  ps_list <- list()
+  set.seed(123)
+  for(i in 1:10){
+    grp1 <- sample(index_1,size = half_1_2[grp1_name],replace = FALSE)
+    grp2 <- sample(index_2,size = half_1_2[grp2_name],replace = FALSE)
+    ID <- list(ps@sam_data$subjectID[c(grp1,grp2)],
+               ps@sam_data$subjectID[-c(grp1,grp2)])
+    ps_list[[i]] <- list()
+    for(j in 1:length(ID)){
+      ps_obj <- subset_samples(ps,subjectID %in% ID[[j]])
+      ps_obj@sam_data$grp <- as.factor(ifelse(ps_obj@sam_data[,variable_name]==grp1_name,"grp1","grp2"))
+      ps_obj <- filter_taxa(ps_obj,function(x) sum(x>1)>1,1)
+      ps_list[[i]][[j]] <- ps_obj
+    }
+    names(ps_list[[i]]) <- paste0("Subset",1:2)
+  }
+  names(ps_list) <- paste0("Comparison",1:10)
+  tonguedorsum_stool <- ps_list
+  
+  subsets_consistency_replicability_16S <- list(subgingival_supragingival = subgingival_supragingival,
+                                                gingiva_mucosa = gingiva_mucosa,
+                                                tonguedorsum_stool = tonguedorsum_stool)
+  save(subsets_consistency_replicability_16S,file = "../data/16Ssubsets_replicability.RData")
+} else load("../data/16Ssubsets_replicability.RData")
+```
