@@ -10,6 +10,8 @@ library(reshape2)
 library(ffpe)
 library(cowplot)
 library(scales)
+library(ggdendro)
+
 
 # 16S Data retrieval
 generate_dataset_16S <- function(A,B,seed,prop){
@@ -127,3 +129,224 @@ compute_MDS <- function(ps, normalization = "none" , method = "MDS", distance = 
   
   return(list(plot = p_o,legend = p_l))
 }
+
+compute_concordance <- function(ps_fitted_list){
+  conc_df <- NULL
+  for(i in 1:length(ps_fitted_list)){ # i in 1:10 comparisons
+    # adjusted pval extraction
+    cat("Comparison",i,"\n")
+    adjP_df1 <- llply(.data = ps_fitted_list[[i]]$Subset1,.fun = function(method) method$pValMat[!is.na(method$pValMat[,2]) & method$pValMat[,2]<0.1,2]) # first half data
+    adjP_df2 <- llply(.data = ps_fitted_list[[i]]$Subset2,.fun = function(method) method$pValMat[!is.na(method$pValMat[,2]) & method$pValMat[,2]<0.1,2]) # second half data
+    # pval extraction
+    P_df1 <- llply(.data = ps_fitted_list[[i]]$Subset1,.fun = function(method) method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]) # first half data
+    P_df2 <- llply(.data = ps_fitted_list[[i]]$Subset2,.fun = function(method) method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]) # second half data
+    
+    for(j in 1:length(names(ps_fitted_list[[i]]$Subset1))){ # j in method names
+      cat("Mehod",names(ps_fitted_list[[i]]$Subset1)[j],"with \n")
+      for(k in 1:length(names(ps_fitted_list[[i]]$Subset1))){ # k in method names again
+        cat("\t",names(ps_fitted_list[[i]]$Subset1)[k],"\n")
+        if(j != k){ # BMC computation
+          # BMC for Subset1 data
+          conc_subset1 <- data.frame(CATplot(vec1 = P_df1[[j]],vec2 = P_df1[[k]],make.plot = FALSE,maxrank = 100), 
+                                     method1 = names(ps_fitted_list[[i]]$Subset1)[j], 
+                                     method2 = names(ps_fitted_list[[i]]$Subset1)[k],
+                                     ndisc_0.1_method1 = length(adjP_df1[[j]]),
+                                     ndisc_0.1_method2 = length(adjP_df1[[k]]),
+                                     nfeatures = nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),
+                                     comparison = i,
+                                     subset = "1")
+          # BMC for Subset2 data
+          conc_subset2 <- data.frame(CATplot(vec1 = P_df2[[j]],vec2 = P_df2[[k]],make.plot = FALSE,maxrank = 100), 
+                                     method1 = names(ps_fitted_list[[i]]$Subset2)[j], 
+                                     method2 = names(ps_fitted_list[[i]]$Subset2)[k],
+                                     ndisc_0.1_method1 = length(adjP_df2[[j]]),
+                                     ndisc_0.1_method2 = length(adjP_df2[[k]]),
+                                     nfeatures = nrow(ps_fitted_list[[i]]$Subset2[[j]]$pValMat),
+                                     comparison = i,
+                                     subset = "2")
+          conc <- rbind(conc_subset1,conc_subset2)
+        } else {
+          # WMC computed between Subset1 and Subset2
+          conc <- data.frame(CATplot(vec1 = P_df1[[j]],vec2 = P_df2[[k]],make.plot = FALSE,maxrank = 100), 
+                             method1 = names(ps_fitted_list[[i]]$Subset1)[j], 
+                             method2 = names(ps_fitted_list[[i]]$Subset2)[k],
+                             ndisc_0.1_method1 = length(adjP_df1[[j]]),
+                             ndisc_0.1_method2 = length(adjP_df2[[k]]),
+                             nfeatures = mean(nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),
+                                              nrow(ps_fitted_list[[i]]$Subset2[[k]]$pValMat)),
+                             comparison = i,
+                             subset = "1vs2")
+        }
+        conc_df <- rbind(conc_df,conc)
+      }
+    }
+  }
+  return(conc_df)
+}
+
+### Compute AUC and AOC of concordance distribution 
+# This method comes from p-value analysis
+AucAocFun <- function(cVals, nfeatures, threshold = 0, plotIt = FALSE, ...) {
+  ## sum of height differences between the curve and the y=x line
+  MaxArea <- threshold # Total Area over = under the y=x line
+  estimated <- cVals # Estimated values
+  theoretic <- seq_along(cVals)/unique(nfeatures) # y=x values
+  
+  if (plotIt) {
+    plot(theoretic, estimated, ...)
+    abline(0, 1)
+  } else {
+  }
+  
+  diffPVals <- theoretic - estimated
+  indConserv <- theoretic <= estimated # Values over the y=x line
+  conservArea <- sum(-diffPVals[indConserv])/MaxArea # Area over the y = x
+  liberalArea <- sum(diffPVals[!indConserv])/MaxArea # Area under the y = x
+  
+  c(conservArea = conservArea, liberalArea = liberalArea, totalArea = liberalArea + 
+      conservArea)
+  
+}
+
+# Concordance plot function
+
+gheat <- function(AUC_AOC_between_methods,concordance_df_summary,tech,comp){
+  # Filtering
+  AUC_AOC_between_methods <- AUC_AOC_between_methods[AUC_AOC_between_methods$tech == tech & AUC_AOC_between_methods$comp == comp,]
+  concordance_df_summary <- concordance_df_summary[concordance_df_summary$tech == tech & concordance_df_summary$comp == comp,]
+  forlegend <- AUC_AOC_between_methods
+  forlegend$method1 <- factor(forlegend$method1,levels = c("DESeq2_poscounts",
+                                                           "DESeq2_TMM",
+                                                           "DESeq2_poscounts_zinbwave",
+                                                           "edgeR_TMM_standard",
+                                                           "edgeR_poscounts_standard",
+                                                           "edgeR_TMM_robustDisp",
+                                                           "edgeR_TMM_zinbwave",
+                                                           "limma_voom_TMM",
+                                                           "limma_voom_TMM_zinbwave",
+                                                           "ALDEx2",
+                                                           "mgsZig_CSS",
+                                                           "MAST",
+                                                           "seurat_wilcoxon",
+                                                           "scde"),ordered = TRUE)
+  g_legend_dendrogram <- get_legend(ggplot() + 
+                                      geom_point(data=forlegend, aes(x=method1, y=1,color=method1),size = 5) +
+                                      scale_color_manual(values = cols) +
+                                      theme_minimal() +
+                                      theme(legend.position = "bottom") +
+                                      guides(color = guide_legend(title = "Methods:",title.position = "left",nrow = 3)))
+  
+  # Clustering
+  dist_matrix <- dcast(data = AUC_AOC_between_methods, formula = method1 ~ method2,value.var = "conservArea")
+  dist_df <- dist_matrix[,2:ncol(dist_matrix)]
+  rownames(dist_df) <- colnames(dist_df)
+  distances <- as.dist(1-dist_df)
+  hc <- hclust(d = distances)
+  # Area extraction
+  area <- apply(concordance_df_summary,1,function(x){
+    area <- AUC_AOC_between_methods$conservArea[AUC_AOC_between_methods$method1 == x["method1"] & AUC_AOC_between_methods$method2 == x["method2"]]
+    return(1-area)
+  })
+  concordance_df_summary_area <- cbind(concordance_df_summary,area = area)
+  # As factor
+  concordance_df_summary_area$method1 <- factor(concordance_df_summary_area$method1,levels = levels(concordance_df_summary_area$method1)[hc$order]) 
+  concordance_df_summary_area$method2 <- factor(concordance_df_summary_area$method2,levels = levels(concordance_df_summary_area$method2)[hc$order]) 
+  # edges
+  edges <- data.frame(x = c(0,0,100,100),
+                      xend = c(0,100,100,0),
+                      y = c(0,1,1,0),
+                      yend = c(1,1,0,0))
+  # heatmap
+  g_heat <- ggplot(concordance_df_summary_area,aes(x = rank, y = concordance)) +
+    #geom_line(size = 1) +
+    facet_grid(method1 ~ method2,scales = "free_x",switch = "y") +
+    xlab("Rank") + # ylab("Concordance") +
+    theme_pubr() + 
+    theme(axis.text = element_blank(),
+          #axis.text.x = element_text(hjust = 1, angle = 45),
+          legend.position = "none",
+          axis.title.y = element_blank(),
+          axis.ticks = element_blank(),
+          axis.line.x.bottom = element_blank(),
+          axis.line.y.right = element_blank(),
+          # strip.text = element_text(hjust = 100, vjust = 100),
+          # strip.background = element_rect(fill = "gray",linetype = 1,color = "white")) + 
+          strip.text = element_blank(),
+          strip.background = element_blank(),
+          panel.spacing = unit(0,"cm"),
+          plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm")) +
+    #geom_abline(mapping = aes(intercept = 0,slope = 1/nfeatures),color = "red",lty = 2) +
+    coord_cartesian(xlim = c(0,100), ylim = c(0,1)) +
+    geom_ribbon(aes(ymin = rank/nfeatures, ymax = concordance, fill = area)) +
+    geom_segment(concordance_df_summary_area[concordance_df_summary_area$method1 == concordance_df_summary_area$method2,],mapping = aes(x = 0, xend = 0, y = 0, yend = 1, color = "red")) +
+    geom_segment(concordance_df_summary_area[concordance_df_summary_area$method1 == concordance_df_summary_area$method2,],mapping = aes(x = 100, xend = 100, y = 1, yend = 0, color = "red")) +
+    geom_segment(concordance_df_summary_area[concordance_df_summary_area$method1 == concordance_df_summary_area$method2,],mapping = aes(x = 0, xend = 100, y = 1, yend = 1, color = "red")) +
+    geom_segment(concordance_df_summary_area[concordance_df_summary_area$method1 == concordance_df_summary_area$method2,],mapping = aes(x = 100, xend = 0, y = 0, yend = 0, color = "red")) +
+    #scale_fill_gradientn(colours = c("red","yellow","turquoise"),limits = c(-0.01,1)) +
+    scale_fill_distiller(palette = "RdYlBu",limits = c(-0.01,1)) +
+    #scale_color_gradientn(colours = c("red","yellow","turquoise"),limits = c(-0.1,1)) +
+    scale_y_continuous(breaks = c(0,0.5,1),position = "right") +
+    scale_x_continuous(breaks = c(0,50,100))
+  
+  g_vertical_dendrogram <- ggplot() + 
+    geom_segment(data=dendro_data(hc)$segments, aes(x=x, y=y, xend=xend, yend=yend)) + 
+    geom_label(data=dendro_data(hc)$labels, aes(x=x, y=y, label=label, hjust=1,color=label), nudge_y = 0) +
+    coord_flip() + scale_y_reverse(expand = c(0,0,0,0)) + scale_x_reverse() +
+    scale_color_manual(values = cols) +
+    theme(axis.line.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.line.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.x=element_blank(),
+          axis.title.x=element_blank(),
+          panel.background=element_rect(fill="white"),
+          panel.grid=element_blank(),
+          legend.position = "none",
+          panel.spacing = unit(0, "lines"),
+          plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm")) +
+    ggtitle(label = paste(tech,paste(strsplit(comp,split = "_")[[1]],collapse = " vs ")),
+            subtitle = "Concordance heatmap")
+  
+  g_horizontal_dendrogram <- ggplot() + 
+    geom_segment(data=dendro_data(hc)$segments, aes(x=x, y=y, xend=xend, yend=yend)) + 
+    geom_point(data=dendro_data(hc)$labels, aes(x=x, y=y,color=label),size = 5) +
+    scale_y_continuous() +
+    #scale_y_reverse(expand=c(2,1)) + scale_x_reverse(expand=c(2,1)) +
+    scale_color_manual(values = cols) +
+    theme(axis.line.y=element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.line.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.text.y=element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.x=element_blank(),
+          axis.title.x=element_blank(),
+          panel.background=element_rect(fill="white"),
+          panel.grid=element_blank(),
+          legend.position = "none",
+          panel.spacing = unit(0, "lines"),
+          plot.margin = unit(c(0.1,0.1,0.1,0.1), "cm"))
+  
+  addline_format <- function(x,...){
+    gsub(':\\s',':\n',x)
+  }
+  g_heat_w_legend <- get_legend(ggplot(concordance_df_summary_area,aes(x = rank, y = concordance)) +
+                                  facet_grid(method1 ~ method2,scales = "free_x",switch = "y") +
+                                  labs(fill = addline_format("Rescaled Area from Rank 1 to 100 between: bisector and concordance")) +
+                                  theme_minimal() + 
+                                  theme(legend.position = "bottom") +
+                                  guides(fill = guide_colorbar(title.position = "top",barwidth = 15)) +
+                                  geom_ribbon(aes(ymin = rank/nfeatures, ymax = concordance, fill = area),alpha = 0.8) +
+                                  scale_fill_distiller(palette = "RdYlBu",limits = c(0,1)) +
+                                  scale_y_continuous(breaks = c(0,0.5,1),position = "right") +
+                                  scale_x_continuous(breaks = c(0,50,100)))
+  
+  a <- plot_grid(plotlist = list(g_horizontal_dendrogram,g_horizontal_dendrogram,g_vertical_dendrogram,g_heat),align = "hv",axis = "lrtb")
+  b <- g_heat_w_legend
+  c <- g_legend_dendrogram
+  return(list(plot = a,legend_heat = b, legend_dendro = c))
+}
+
+
