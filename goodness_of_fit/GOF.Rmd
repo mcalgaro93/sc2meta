@@ -172,7 +172,7 @@ Zero-Inflated Negative Binomial (ZINB), Negative Binomial (NB), Truncated Gaussi
 source("additional_functions.R")
 
 if(!file.exists("../data/HMP16SData_models.RData")){
-  HMP16SData_models <- lapply(HMP16SData_list[1:2],function(ps) fit_models(ps, model.matrix( ~ 1, data = data.frame(ps@sam_data))))
+  HMP16SData_models <- lapply(HMP16SData_list,function(ps) fit_models(ps, model.matrix( ~ 1, data = data.frame(ps@sam_data))))
   save(HMP16SData_models,file = "../data/HMP16SData_models.RData")
 } else load("../data/HMP16SData_models.RData")
 
