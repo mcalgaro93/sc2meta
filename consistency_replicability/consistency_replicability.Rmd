@@ -43,6 +43,8 @@ library(ggpubr)
 library(vegan)
 library(cowplot)
 source("additional_functions.R")
+source("../colors_17.R")
+source("../eval_functions.R")
 ```
 
 ## 16S Datasets
@@ -126,7 +128,7 @@ plot_grid(plotlist = lapply(ps_list_16S, alpha_16S),nrow = 1,align = "h")
 
 ## WMS datasets
 
-```{r}
+```{r, fig.width=10, fig.height=5}
 plot_grid(plotlist = list(alpha_WMS(ps_list_WMS$Stool_TongueDorsum,variable = "body_subsite"),alpha_WMS(ps_list_WMS$Schizophrenia,variable = "study_condition"),alpha_WMS(ps_list_WMS$CRC,variable = "study_condition")),align = "h",nrow = 1)
 ```
 
@@ -407,3 +409,142 @@ if(!file.exists("../data/16Ssubsets_replicability.RData")){
   save(subsets_consistency_replicability_16S,file = "../data/16Ssubsets_replicability.RData")
 } else load("../data/16Ssubsets_replicability.RData")
 ```
+
+## Differential abundance testing
+
+### WMS
+
+This takes a long time.
+
+```{r}
+# high diversity
+ps_list <- subsets_consistency_replicability_WMS$tonguedorsum_stool
+if(!file.exists("../data/WMSdatasets_for_replicability_DA_TongueDorsum_Stool.RData")){
+  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
+  save(ps_fitted_list,file = "../data/WMSdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
+} else load("../data/WMSdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
+
+# mid diversity
+ps_list <- subsets_consistency_replicability_WMS$schizophrenia_control
+if(!file.exists("../data/WMSdatasets_for_replicability_DA_schizophrenia_control.RData")){
+  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
+  save(ps_fitted_list,file = "../data/WMSdatasets_for_replicability_DA_schizophrenia_control.RData")
+} else load("../data/WMSdatasets_for_replicability_DA_schizophrenia_control.RData")
+
+# low diversity
+ps_list <- subsets_consistency_replicability_WMS$CRC_control
+if(!file.exists("../data/WMSdatasets_for_replicability_DA_CRC_control.RData")){
+  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
+  save(ps_fitted_list,file = "../data/WMSdatasets_for_replicability_DA_CRC_control.RData")
+} else load("../data/WMSdatasets_for_replicability_DA_CRC_control.RData")
+```
+
+### 16S
+
+```{r}
+# high diversity
+ps_list <- subsets_consistency_replicability_16S$tonguedorsum_stool
+if(!file.exists("../data/16Sdatasets_for_replicability_DA_TongueDorsum_Stool.RData")){
+  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
+  save(ps_fitted_list,file = "../data/16Sdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
+} else load("../data/16Sdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
+
+# mid diversity
+ps_list <- subsets_consistency_replicability_16S$gingiva_mucosa
+if(!file.exists("../data/16Sdatasets_for_replicability_DA_gingiva_mucosa.RData")){
+  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
+  save(ps_fitted_list,file = "../data/16Sdatasets_for_replicability_DA_gingiva_mucosa.RData")
+} else load("../data/16Sdatasets_for_replicability_DA_gingiva_mucosa.RData")
+
+# low diversity
+ps_list <- subsets_consistency_replicability_16S$subgingival_supragingival
+if(!file.exists("../data/16Sdatasets_for_replicability_DA_subgingival_supragingival.RData")){
+  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
+  save(ps_fitted_list,file = "../data/16Sdatasets_for_replicability_DA_subgingival_supragingival.RData")
+} else load("../data/16Sdatasets_for_replicability_DA_subgingival_supragingival.RData")
+```
+
+## Between Dataset Concordance and Within Dataset Concordance 
+
+### WMS
+
+```{r} 
+# high diversity
+load(file = "../data/WMSdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
+if(!file.exists("../data/WMSconcordance_TongueDorsum_Stool.RData")){
+  conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
+  save(conc_df,file = "../data/WMSconcordance_TongueDorsum_Stool.RData")
+} else load(file = "../data/WMSconcordance_TongueDorsum_Stool.RData")
+
+# mid diversity
+load(file = "../data/WMSdatasets_for_replicability_DA_schizophrenia_control.RData")
+if(!file.exists("../data/WMSconcordance_schizophrenia_control.RData")){
+  conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
+  save(conc_df,file = "../data/WMSconcordance_schizophrenia_control.RData")
+} else load(file = "../data/WMSconcordance_schizophrenia_control.RData")
+
+# low diversity
+load(file = "../data/WMSdatasets_for_replicability_DA_CRC_control.RData")
+if(!file.exists("../data/WMSconcordance_CRC_control.RData")){
+  conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
+  save(conc_df,file = "../data/WMSconcordance_CRC_control.RData")
+} else load(file = "../data/WMSconcordance_CRC_control.RData")
+```
+
+### 16S
+
+```{r} 
+# high diversity
+load(file = "../data/16Sdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
+if(!file.exists("../data/16Sconcordance_TongueDorsum_Stool.RData")){
+  conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
+  save(conc_df,file = "../data/16Sconcordance_TongueDorsum_Stool.RData")
+} else load(file = "../data/16Sconcordance_TongueDorsum_Stool.RData")
+
+# mid diversity
+load(file = "../data/16Sdatasets_for_replicability_DA_gingiva_mucosa.RData")
+if(!file.exists("../data/16Sconcordance_gingiva_mucosa.RData")){
+  conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
+  save(conc_df,file = "../data/16Sconcordance_gingiva_mucosa.RData")
+} else load(file = "../data/16Sconcordance_gingiva_mucosa.RData")
+
+# low diversity
+load(file = "../data/16Sdatasets_for_replicability_DA_subgingival_supragingival.RData")
+if(!file.exists("../data/16Sconcordance_subgingival_supragingival.RData")){
+  conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
+  save(conc_df,file = "../data/16Sconcordance_subgingival_supragingival.RData")
+} else load(file = "../data/16Sconcordance_subgingival_supragingival.RData")
+```
+
+# Plots
+
+```{r, fig.width=15, fig.height=9.5}
+load("../data/WMSconcordance_TongueDorsum_Stool.RData")
+conc_df_WMS <- conc_df
+load("../data/16Sconcordance_TongueDorsum_Stool.RData")
+conc_df_16S <- conc_df
+
+conc_df <- rbind(data.frame(conc_df_16S,tech = "16S",comp = "TongueDorsum_Stool"),
+                 data.frame(conc_df_WMS,tech = "WMS",comp = "TongueDorsum_Stool"))
+
+concordance_df_summary <- suppressWarnings(ddply(conc_df, ~ tech + comp + rank + method1 + method2, function(x) colMeans(x[,c("concordance","ndisc_0.1_method1","ndisc_0.1_method2","nfeatures")])))
+AUC_AOC_between_methods <- suppressWarnings(ddply(concordance_df_summary, ~ tech + comp + method1 + method2, function(x) AucAocFun(cVals = x$concordance[x$rank <= 100], nfeatures = mean(x$nfeatures[x$rank <= 100]), threshold = 100)))
+
+a <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
+           concordance_df_summary = concordance_df_summary,
+           tech = "16S",
+           comp = "TongueDorsum_Stool")
+
+b <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
+           concordance_df_summary = concordance_df_summary,
+           tech = "WMS",
+           comp = "TongueDorsum_Stool")
+
+fig <- plot_grid(plot_grid(a$plot,b$plot,ncol = 2,labels = "auto"),
+                 plot_grid(a$legend_dendro,a$legend_heat,ncol = 2,rel_widths = c(1,0.4)),nrow = 2,rel_heights = c(1,0.1))
+fig
+```
+
+
+
+
