@@ -20,7 +20,7 @@ The directory _./type_I_error_control/_ contains the _TIEC.Rmd_ file which loads
 The directory _./consistency_replicability/_ contains the _consistency_replicability.Rmd_ file which evaluates Concordance At the Top (CAT) between methods (consistency) and within method (replicability) in 6 real datasets.
 
 ## Power
-The directory _./power/._ contains several files:
+The directory _./power/_ contains several files:
 <ul>
   <li> datasets_and_models.R which estimates the Negative Binomial and Zero-Inflated Negative Binomial parametric distributions to use as template for the simulations in 6 datasets; </li>
   <li> simulator.R which creates the simulation framework; </li>
