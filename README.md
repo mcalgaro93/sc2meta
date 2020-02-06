@@ -33,7 +33,7 @@ The directory _./power/_ contains several files:
 Since the entire data production took a long time, the _./data/_ directory contains several outputs from all the analyses. This should make it easier for the user to replicate the results.
 
 ## Instructions and R environment
-To replicate the analyses it is strongly suggested to clone or download the entire github directory. Some of the functions used this paper are adapted from the work of: _A broken promise: microbiome differential abundance methods do not control the false discovery rate._, the original code is available at https://users.ugent.be/~shawinke/ABrokenPromise/index.html. The analyses run in many version of R during the development, R 3.5.1 was the final R version on which the methods worked. However it is fundamental to use specific versions for some CRAN or Bioconductor packages:
+To replicate the analyses it is strongly suggested to clone or download the entire github directory. Some of the functions used this paper are adapted from the work of: _A broken promise: microbiome differential abundance methods do not control the false discovery rate._, their original code is available at https://users.ugent.be/~shawinke/ABrokenPromise/index.html. The analyses run in many version of R during the development, R 3.5.1 was the final R version on which the methods worked. However it is fundamental to use specific versions for some CRAN or Bioconductor packages:
 <ul>
   <li> flexmix v2.3-13 and scde 1.99.1 which can be found at https://cran.r-project.org/src/contrib/Archive/flexmix/
 and https://github.com/hms-dbmi/scde/releases</li>
