@@ -79,19 +79,22 @@ Stool_16S_WMS
 # Mock dataset creation
 
 ```{r subsetting, echo=FALSE}
-ps_list <- lapply(Stool_16S_WMS,FUN = function(ps){
-  mock_list <- list()
-  set.seed(123)
-  for(i in 1:10){
-    grps <- rep("grp1",nsamples(ps))
-    grps[sample(1:nsamples(ps),size = 20)] <- "grp2"
-    ps_obj <- ps
-    ps_obj@sam_data$grp <- as.factor(grps)
-    mock_list <- c(mock_list,ps_obj)
-  }
-  names(mock_list) <- paste0("Comparison",1:10)
-  mock_list
-})
+if(!file.exists("../data/Stool_16S_WMS_mock.RDS")){
+  ps_list <- lapply(Stool_16S_WMS,FUN = function(ps){
+    mock_list <- list()
+    set.seed(123)
+    for(i in 1:1000){
+      grps <- rep("grp1",nsamples(ps))
+      grps[sample(1:nsamples(ps),size = 20)] <- "grp2"
+      ps_obj <- ps
+      ps_obj@sam_data$grp <- as.factor(grps)
+      mock_list <- c(mock_list,ps_obj)
+    }
+    names(mock_list) <- paste0("Comparison",1:1000)
+    mock_list
+  })
+  saveRDS(object = ps_list, file = "../data/Stool_16S_WMS_mock.RDS")
+} else ps_list <- readRDS(file = "../data/Stool_16S_WMS_mock.RDS")
 ```
 
 # Differential abundance tests
