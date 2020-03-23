@@ -97,6 +97,8 @@ if(!file.exists("../data/Stool_16S_WMS_mock.RDS")){
 } else ps_list <- readRDS(file = "../data/Stool_16S_WMS_mock.RDS")
 ```
 
+Use "sbatch mock_comparison.bash" with "mock_16S_comparison_script.R" and "mock_WMS_comparison_script.R" to evaluate mock datasets. An output is generated for each evaluation.
+
 # Differential abundance tests
 
 ```{r}
