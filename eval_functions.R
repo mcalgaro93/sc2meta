@@ -25,7 +25,8 @@ pkgs <- c("edgeR",
           "scde", # It is important to use flexmix v2.3-13 and scde 1.99.1
           "Seurat",
           "crayon",
-          "ALDEx2")
+          "ALDEx2",
+          "corncob")
 for(i in pkgs) { library(i, quietly=TRUE, verbose=FALSE, warn.conflicts=FALSE, character.only=TRUE) }
 
 register(SerialParam())
@@ -698,6 +699,28 @@ ALDEx2model <- function(physeq,design = as.formula("~ grp"),normFacts = c("TMM",
   return(list("pValMat" = pValMat,"statInfo" = statInfo))
 }# END - function: ALDEx2
 
+corncobmodel <- function(physeq, design = as.formula("~ grp"), test = c("Wald","LRT"), bootstrap = c("TRUE","FALSE")){
+  ### force orientation OTUs x samples
+  if (!taxa_are_rows(physeq))
+  {
+    physeq <- t(physeq)
+  } else {}
+  
+  da_analysis <- differentialTest(formula = design,
+                                  phi.formula = design,
+                                  formula_null = ~ 1,
+                                  phi.formula_null = design,
+                                  test = test, boot = bootstrap,
+                                  data = physeq,
+                                  fdr_cutoff = 0.05)
+  pValMat <- cbind("rawP" = da_analysis$p, "adjP" = da_analysis$p_fdr)
+  rownames(pValMat) = names(da_analysis$p)
+  statInfo <- ldply(da_analysis$all_models,coef)
+  statInfo$coef = c("mu.(Intercept)","mu.grpgrp2","phi.(Intercept)","phi.grpgrp2")
+  statInfo$feature = rep(names(da_analysis$p),each = 4)
+  return(list("pValMat" = pValMat,"statInfo" = statInfo))
+}
+
 computeExactWeights <- function (model, x) 
 {
   mu <- getMu(model)
@@ -784,7 +807,13 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10) {
     ## ALDEx2 Wilcoxon test
     ALDEx2 <- ALDEx2model(physeq)
     cat("ALDEx2 Wilcoxon test: DONE\n")
-    
+    ## corncob Wald test
+    corcob_wald <- corncobmodel(physeq,test = "Wald",bootstrap = FALSE)
+    cat("corncob Wald test: DONE\n")
+    ## corncob LRT test
+    corcob_LRT <- corncobmodel(physeq,test = "LRT",bootstrap = FALSE)
+    cat("corncob LRT test: DONE\n")
+      
     ## MAST hurdle models
     MAST <- MASTmodel(physeq)
     cat("MAST lrt tests: DONE\n")
