@@ -719,7 +719,18 @@ corncobmodel <- function(physeq, design = as.formula("~ grp"), test = c("Wald","
   statInfo$coef = c("mu.(Intercept)","mu.grpgrp2","phi.(Intercept)","phi.grpgrp2")
   statInfo$feature = rep(names(da_analysis$p),each = 4)
   return(list("pValMat" = pValMat,"statInfo" = statInfo))
-}
+}# END - function: corncob
+
+# Too time consuming
+selbalmodel <- function(physeq, variable_name = "grp"){
+  ### force orientation OTUs x samples
+  if (!taxa_are_rows(physeq))
+  {
+    physeq <- t(physeq)
+  } else {}
+  selbal_test <- selbal.cv(x = t(physeq@otu_table),
+                           y = physeq@sam_data[,variable_name])
+}# END - function: selbal
 
 computeExactWeights <- function (model, x) 
 {
