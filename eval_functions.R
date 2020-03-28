@@ -26,7 +26,8 @@ pkgs <- c("edgeR",
           "Seurat",
           "crayon",
           "ALDEx2",
-          "corncob")
+          "corncob",
+          "selbal")
 for(i in pkgs) { library(i, quietly=TRUE, verbose=FALSE, warn.conflicts=FALSE, character.only=TRUE) }
 
 register(SerialParam())
