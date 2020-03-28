@@ -79,22 +79,17 @@ Stool_16S_WMS
 # Mock dataset creation
 
 ```{r subsetting, echo=FALSE}
-if(!file.exists("../data/Stool_16S_WMS_mock.RDS")){
-  ps_list <- lapply(Stool_16S_WMS,FUN = function(ps){
-    mock_list <- list()
-    set.seed(123)
-    for(i in 1:1000){
-      grps <- rep("grp1",nsamples(ps))
-      grps[sample(1:nsamples(ps),size = 20)] <- "grp2"
-      ps_obj <- ps
-      ps_obj@sam_data$grp <- as.factor(grps)
-      mock_list <- c(mock_list,ps_obj)
-    }
-    names(mock_list) <- paste0("Comparison",1:1000)
-    mock_list
-  })
-  saveRDS(object = ps_list, file = "../data/Stool_16S_WMS_mock.RDS")
-} else ps_list <- readRDS(file = "../data/Stool_16S_WMS_mock.RDS")
+if(!file.exists("../data/Stool_16S_WMS_mock_df.tsv")){
+  mock_df <- matrix(NA,nrow = 1000,ncol = nsamples(Stool_16S_WMS$Stool_16S))
+  set.seed(123)
+  for(i in 1:1000){
+    grps <- rep("grp1",nsamples(Stool_16S_WMS$Stool_16S))
+    grps[sample(1:nsamples(Stool_16S_WMS$Stool_16S),size = 20)] <- "grp2"
+    mock_df[i,] <- grps
+  }
+  rownames(mock_df) <- paste0("Comparison",1:1000)
+  write.table(mock_df,file = "../data/Stool_16S_WMS_mock_df.tsv",quote = FALSE,sep = "\t",row.names = TRUE)
+} else mock_df <- read.table(file = "../data/Stool_16S_WMS_mock_df.tsv",sep = "\t")
 ```
 
 Use "sbatch mock_comparison.bash" with "mock_16S_comparison_script.R" and "mock_WMS_comparison_script.R" to evaluate mock datasets. An output is generated for each evaluation.
@@ -104,12 +99,18 @@ Use "sbatch mock_comparison.bash" with "mock_16S_comparison_script.R" and "mock_
 ```{r}
 source("../eval_functions.R")
 if(!file.exists("../data/Stool_16S_mockDA.RDS")){
-  Stool_16S_mockDA <- lapply(ps_list$Stool_16S, oneSimRunGSOwn, epsilon = 1e10)
+  Stool_16S_mockDA <- apply(mock_df,1,function(x){
+    Stool_16S_WMS$Stool_16S@sam_data$grp <- x
+    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_16S, epsilon = 1e10)
+  })
   saveRDS(Stool_16S_mockDA,file = "../data/Stool_16S_mockDA.RDS")
 } else Stool_16S_mockDA <- readRDS("../data/Stool_16S_mockDA.RDS")
 
 if(!file.exists("../data/Stool_WMS_mockDA.RDS")){
-  Stool_WMS_mockDA <- lapply(ps_list$Stool_WMS, oneSimRunGSOwn, epsilon = 1e10)
+  Stool_WMS_mockDA <- apply(mock_df,1,function(x){
+    Stool_16S_WMS$Stool_WMS@sam_data$grp <- x
+    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_WMS, epsilon = 1e10)
+  })
   saveRDS(Stool_WMS_mockDA,file = "../data/Stool_WMS_mockDA.RDS")
 } else Stool_WMS_mockDA <- readRDS("../data/Stool_WMS_mockDA.RDS")
 ```
