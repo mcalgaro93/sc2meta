@@ -827,7 +827,7 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10) {
       
     ## MAST hurdle models
     MAST <- MASTmodel(physeq)
-    cat("MAST lrt tests: DONE\n")
+    cat("MAST LRT tests: DONE\n")
     ## scde single cell differential expression
     scde <- scdemodel(physeq)
     cat("scde single cell differential expression tests: DONE\n")
@@ -837,6 +837,24 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10) {
     ## NODES
     #nodes <- NODESmodel(physeq)
     #cat("NODES Wilcoxon tests: DONE\n")
+  })
+  return(returnList)
+}
+
+oneSimRunGSOwnFastestMethod <- function(physeq, true_weights = NULL, epsilon = 1e10) { 
+  # Prevent NA when converting to integer due to some outlier generation during simulation
+  physeq@otu_table@.Data[which(physeq@otu_table@.Data>.Machine$integer.max)] <- .Machine$integer.max
+  physeq <- normEdgeR(physeq = physeq, method = "TMM")
+  cat("Normalisations: DONE\n")
+  returnList = list()
+  #returnList$physeq = physeq
+  returnList = within(returnList, {
+    ## edgeR Standard
+    edgeR_TMM_standard <- edgeR_standard(physeq, normFacts = "TMM")
+    cat("EdgeR standard tests: DONE\n")
+    ## limma-voom
+    limma_voom_TMM <- limma_voom(physeq, normFacts = "TMM")
+    cat("Limma Voom tests: DONE\n")
   })
   return(returnList)
 }
