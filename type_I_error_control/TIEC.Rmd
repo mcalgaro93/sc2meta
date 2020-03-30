@@ -92,27 +92,29 @@ if(!file.exists("../data/Stool_16S_WMS_mock_df.tsv")){
 } else mock_df <- read.table(file = "../data/Stool_16S_WMS_mock_df.tsv",sep = "\t")
 ```
 
-Use "sbatch mock_comparison.bash" with "mock_16S_comparison_script.R" and "mock_WMS_comparison_script.R" to evaluate mock datasets. An output is generated for each evaluation.
-
 # Differential abundance tests
 
-```{r}
-source("../eval_functions.R")
-if(!file.exists("../data/Stool_16S_mockDA.RDS")){
-  Stool_16S_mockDA <- apply(mock_df,1,function(x){
-    Stool_16S_WMS$Stool_16S@sam_data$grp <- x
-    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_16S, epsilon = 1e10)
-  })
-  saveRDS(Stool_16S_mockDA,file = "../data/Stool_16S_mockDA.RDS")
-} else Stool_16S_mockDA <- readRDS("../data/Stool_16S_mockDA.RDS")
+Use "sbatch mock_comparison.bash" with "mock_16S_comparison_script.R" and "mock_WMS_comparison_script.R" to evaluate mock datasets. An output is generated for each evaluation. Then use "mock_aggregation.R" to create a single data object.
 
-if(!file.exists("../data/Stool_WMS_mockDA.RDS")){
-  Stool_WMS_mockDA <- apply(mock_df,1,function(x){
-    Stool_16S_WMS$Stool_WMS@sam_data$grp <- x
-    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_WMS, epsilon = 1e10)
-  })
-  saveRDS(Stool_WMS_mockDA,file = "../data/Stool_WMS_mockDA.RDS")
-} else Stool_WMS_mockDA <- readRDS("../data/Stool_WMS_mockDA.RDS")
+The final 16S and WMS mock comparison objects are heavy ~400MB, they are not loaded in github. Skip to plots.
+
+```{r}
+# source("../eval_functions.R")
+# if(!file.exists("../data/Stool_16S_mockDA.RDS")){
+#   Stool_16S_mockDA <- apply(mock_df,1,function(x){
+#     Stool_16S_WMS$Stool_16S@sam_data$grp <- x
+#     oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_16S, epsilon = 1e10)
+#   })
+#   saveRDS(Stool_16S_mockDA,file = "../data/Stool_16S_mockDA.RDS")
+# } else Stool_16S_mockDA <- readRDS("../data/Stool_16S_mockDA.RDS")
+# 
+# if(!file.exists("../data/Stool_WMS_mockDA.RDS")){
+#   Stool_WMS_mockDA <- apply(mock_df,1,function(x){
+#     Stool_16S_WMS$Stool_WMS@sam_data$grp <- x
+#     oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_WMS, epsilon = 1e10)
+#   })
+#   saveRDS(Stool_WMS_mockDA,file = "../data/Stool_WMS_mockDA.RDS")
+# } else Stool_WMS_mockDA <- readRDS("../data/Stool_WMS_mockDA.RDS")
 ```
 
 # Plot
@@ -128,7 +130,7 @@ produce_pval_df <- function(ps_fitted_list,pval_type){
     },.id = "Method")
   }) 
   
-  pval_df <- ldply(pval_df_list,function(x) x, .id = "Comparison")
+  pval_df <- ldply(pval_df_list, .id = "Comparison")
   pval_df$Method <- factor(pval_df$Method,levels = c("DESeq2_poscounts",
                                                      "DESeq2_TMM",
                                                      "DESeq2_poscounts_zinbwave",
@@ -140,6 +142,8 @@ produce_pval_df <- function(ps_fitted_list,pval_type){
                                                      "limma_voom_TMM_zinbwave",
                                                      "ALDEx2",
                                                      "mgsZig_CSS",
+                                                     "corncob_LRT",
+                                                     "corncob_wald",
                                                      "MAST",
                                                      "seurat_wilcoxon",
                                                      "scde"),ordered = TRUE)
@@ -155,7 +159,7 @@ produce_pval_df <- function(ps_fitted_list,pval_type){
   })
   
   # Create data frame for empirical and theoretical p-values
-  pval_df_qq <- ddply(.data = pval_df,.variables = ~ Comparison + Method,.fun = function(x){
+  pval_df_qq <- suppressWarnings(ddply(.data = pval_df,.variables = ~ Comparison + Method,.fun = function(x){
     x <- x[order(x$pval),]
     x$pval_theorical[!is.na(x$pval)] <- (1:(sum(!is.na(x$pval))))/(sum(!is.na(x$pval)))
     x$pval_theorical_rounded[!is.na(x$pval)] <- round((1:(sum(!is.na(x$pval))))/(sum(!is.na(x$pval))),digits = 2)
@@ -164,7 +168,7 @@ produce_pval_df <- function(ps_fitted_list,pval_type){
     #x$KLD <- KLD(x$pval_theorical[!is.na(x$pval)],x$pval[!is.na(x$pval)])$sum.KLD.px.py
     #x$KLD_0.1 <- KLD(x$pval_theorical[!is.na(x$pval) & x$pval_theorical < 0.1],x$pval[!is.na(x$pval) & x$pval_theorical < 0.1])$sum.KLD.px.py
     return(x)
-  })
+  }))
   
   # For each theoretical p-value, the mean of observed one is computed. 
   pval_df_qq_summary <- ddply(.data = pval_df_qq,.variables = ~ Method + pval_theorical_rounded,.fun = function(x){
@@ -185,7 +189,7 @@ produce_pval_df <- function(ps_fitted_list,pval_type){
 }
 
 plot_FDRcheck <- function(dataset,tech){
-  pval_df_FDR_mean <- produce_pval_df(ps_fitted_list = dataset,pval_type = "raw")$pval_df_FDR_mean
+  pval_df_FDR_mean <- dataset$pval_df_FDR_mean
   
   ord001 <- order(ddply(pval_df_FDR_mean,.variables = ~ Method, function(x) mean(x$FDR_obs001))$V1)
   ord005 <- order(ddply(pval_df_FDR_mean,.variables = ~ Method, function(x) mean(x$FDR_obs005))$V1)
@@ -217,7 +221,7 @@ plot_FDRcheck <- function(dataset,tech){
   return(g)
 }
 plot_qq <- function(dataset,tech,zoom = c(0,1)){
-  pval_df_qq_summary <- produce_pval_df(ps_fitted_list = dataset,pval_type = "raw")$pval_df_qq_summary
+  pval_df_qq_summary <- dataset$pval_df_qq_summary
   
   df_segments <- data.frame(x1 = c(0.01,0,0.05,0,0.1,0),
                             x2 = c(0.01,0.01,0.05,0.05,0.1,0.1),
@@ -239,7 +243,7 @@ plot_qq <- function(dataset,tech,zoom = c(0,1)){
 }
 
 plot_KS <- function(dataset,tech){
-  pval_df_KS_summary <- produce_pval_df(ps_fitted_list = dataset,pval_type = "raw")$pval_df_KS_summary
+  pval_df_KS_summary <- dataset$pval_df_KS_summary
   ord <- order(ddply(pval_df_KS_summary,.variables = ~ Method, function(x) mean(x$KS))$V1)
   pval_df_KS_summary$Method <- factor(pval_df_KS_summary$Method, levels = levels(pval_df_KS_summary$Method)[ord],ordered = TRUE)
   ggplot(melt(pval_df_KS_summary[,1:3]),aes(x = Method,y = value, color = Method)) +
@@ -257,8 +261,8 @@ plot_KS <- function(dataset,tech){
           plot.margin = unit(c(0,0,0,1), "cm"))
 }
 
-legend_method <- function(nrow){
-  pval_df_KS_summary <- produce_pval_df(ps_fitted_list = Stool_16S_mockDA,pval_type = "raw")$pval_df_KS_summary
+legend_method <- function(dataset, nrow){
+  pval_df_KS_summary <- dataset$pval_df_KS_summary
   df_method <- data.frame(Method = unique(pval_df_KS_summary$Method),
                           pos = cumsum(sapply(unique(pval_df_KS_summary$Method),function(x) nchar(as.character(x))+10)))
   g_methods <- ggplot(df_method,aes(x = Method,y = "1", color = Method)) +
@@ -271,23 +275,33 @@ legend_method <- function(nrow){
 ```
 
 ```{r, fig.height=13, fig.width=15}
-e <- plot_FDRcheck(dataset = Stool_16S_mockDA,tech = "16S")
-f <- plot_FDRcheck(dataset = Stool_WMS_mockDA,tech = "WMS")
+if(!file.exists("../data/TIEC_16S_plot.RDS")){
+  dataplot_16S <- produce_pval_df(ps_fitted_list = Stool_16S_mockDA,pval_type = "raw")
+  saveRDS(dataplot_16S,file = "../data/TIEC_16S_plot.RDS")
+} else dataplot_16S <- readRDS("../data/TIEC_16S_plot.RDS")
 
-a1 <- plot_qq(dataset = Stool_16S_mockDA,tech = "16S",zoom = c(0,1)) + 
+if(!file.exists("../data/TIEC_WMS_plot.RDS")){
+  dataplot_WMS <- produce_pval_df(ps_fitted_list = Stool_WMS_mockDA,pval_type = "raw")
+  saveRDS(dataplot_WMS,file = "../data/TIEC_WMS_plot.RDS")
+} else dataplot_WMS <- readRDS("../data/TIEC_WMS_plot.RDS")
+
+e <- plot_FDRcheck(dataset = dataplot_16S,tech = "16S")
+f <- plot_FDRcheck(dataset = dataplot_WMS,tech = "WMS")
+
+a1 <- plot_qq(dataset = dataplot_16S,tech = "16S",zoom = c(0,1)) + 
   ggtitle(label = paste("QQ-plot 16S stool samples"),subtitle = paste("From 0 to 1"))
-a2 <- plot_qq(dataset = Stool_16S_mockDA,tech = "16S",zoom = c(0,0.1)) + 
+a2 <- plot_qq(dataset = dataplot_16S,tech = "16S",zoom = c(0,0.1)) + 
   ggtitle(label = element_blank(),subtitle = paste("From 0 to 0.1"))
 a <- plot_grid(plotlist = list(a1,a2),nrow = 2,align = "hv")
 
-c1 <- plot_qq(dataset = Stool_WMS_mockDA,tech = "WMS",zoom = c(0,1)) +
+c1 <- plot_qq(dataset = dataplot_WMS,tech = "WMS",zoom = c(0,1)) +
   ggtitle(label = paste("QQ-plot WMS stool samples"),subtitle = paste("From 0 to 1"))
-c2 <- plot_qq(dataset = Stool_WMS_mockDA,tech = "WMS",zoom = c(0,0.1)) + 
+c2 <- plot_qq(dataset = dataplot_WMS,tech = "WMS",zoom = c(0,0.1)) + 
   ggtitle(label = element_blank(),subtitle = paste("From 0 to 0.1"))
 c <- plot_grid(plotlist = list(c1,c2),nrow = 2,align = "vh")
 
-b <- plot_KS(dataset = Stool_16S_mockDA,tech = "16S")
-d <- plot_KS(dataset = Stool_WMS_mockDA,tech = "WMS")
+b <- plot_KS(dataset = dataplot_16S,tech = "16S")
+d <- plot_KS(dataset = dataplot_WMS,tech = "WMS")
 
 ab <- plot_grid(plotlist = list(a,b),ncol = 2,axis = "tb",labels = c("a","b"),rel_widths = c(2,3))
 abe <- plot_grid(plotlist = list(ab,e),nrow = 2,axis = "lr",labels = c("","e"))
@@ -295,7 +309,7 @@ cd <- plot_grid(plotlist = list(c,d),ncol = 2,axis = "tb",labels = c("c","d"),re
 cdf <- plot_grid(plotlist = list(cd,f),nrow = 2,axis = "lr",labels = c("","f"))
 
 abecdf <- plot_grid(abe,cdf,axis = "tb")
-leg <- legend_method(nrow = 3)
+leg <- legend_method(dataset = dataplot_16S, nrow = 3)
 
 fig <- plot_grid(abecdf,leg,nrow = 2,rel_heights = c(1,0.1))
 fig
