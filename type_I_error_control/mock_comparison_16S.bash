@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=TIEC10   			# Job name
+#SBATCH --job-name=TIEC1000   			# Job name
 #SBATCH -p normal   					# priority
 #SBATCH --mail-type=ALL         		# Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=mcalgaro93@gmail.com # Where to send mail	
