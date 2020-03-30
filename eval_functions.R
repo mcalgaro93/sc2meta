@@ -820,10 +820,10 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10) {
     ALDEx2 <- ALDEx2model(physeq)
     cat("ALDEx2 Wilcoxon test: DONE\n")
     ## corncob Wald test
-    corcob_wald <- corncobmodel(physeq,test = "Wald",bootstrap = FALSE)
+    corncob_wald <- corncobmodel(physeq,test = "Wald",bootstrap = FALSE)
     cat("corncob Wald test: DONE\n")
     ## corncob LRT test
-    corcob_LRT <- corncobmodel(physeq,test = "LRT",bootstrap = FALSE)
+    corncob_LRT <- corncobmodel(physeq,test = "LRT",bootstrap = FALSE)
     cat("corncob LRT test: DONE\n")
       
     ## MAST hurdle models
