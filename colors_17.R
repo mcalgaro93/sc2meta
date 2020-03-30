@@ -6,7 +6,7 @@ cols <- c(
 # ALDEx2
 "#C0E845",
 # 2 corncob
-brewer.pal(n = 11, "Blues")[c(3,5)],
+brewer.pal(n = 9, "Blues")[c(3,5)],
 # 4 DESeq2
 brewer.pal(n = 9,"YlOrBr")[c(4,7,7,8,9,5)],
 # 5 edgeR
