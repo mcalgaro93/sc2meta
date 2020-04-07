@@ -132,36 +132,53 @@ compute_MDS <- function(ps, normalization = "none" , method = "MDS", distance = 
 
 compute_concordance <- function(ps_fitted_list){
   conc_df <- NULL
-  for(i in 1:length(ps_fitted_list)){ # i in 1:10 comparisons
+  for(i in 1:length(ps_fitted_list)){ # i in 1:100 comparisons
     # adjusted pval extraction
     cat("Comparison",i,"\n")
     adjP_df1 <- llply(.data = ps_fitted_list[[i]]$Subset1,.fun = function(method) method$pValMat[!is.na(method$pValMat[,2]) & method$pValMat[,2]<0.1,2]) # first half data
     adjP_df2 <- llply(.data = ps_fitted_list[[i]]$Subset2,.fun = function(method) method$pValMat[!is.na(method$pValMat[,2]) & method$pValMat[,2]<0.1,2]) # second half data
     # pval extraction
-    P_df1 <- llply(.data = ps_fitted_list[[i]]$Subset1,.fun = function(method) method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]) # first half data
-    P_df2 <- llply(.data = ps_fitted_list[[i]]$Subset2,.fun = function(method) method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]) # second half data
+    P_df1 <- llply(.data = ps_fitted_list[[i]]$Subset1,.fun = function(method){
+      if("pValMat" %in% names(method)){
+        out <- method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]
+      } else {
+        out <- abs(method[,2])
+        names(out) <- rownames(method)
+      }
+      return(out)
+    }) # first half data
+    P_df2 <- llply(.data = ps_fitted_list[[i]]$Subset2,.fun = function(method){
+      if("pValMat" %in% names(method)){
+        out <- method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]
+      } else {
+        out <- abs(method[,2])
+        names(out) <- rownames(method)
+      }
+      return(out)
+    })  # second half data
     
-    for(j in 1:length(names(ps_fitted_list[[i]]$Subset1))){ # j in method names
+    nmethods <- length(names(ps_fitted_list[[i]]$Subset1))
+    for(j in 1:nmethods){ # j in method names
       cat("Mehod",names(ps_fitted_list[[i]]$Subset1)[j],"with \n")
-      for(k in 1:length(names(ps_fitted_list[[i]]$Subset1))){ # k in method names again
+      for(k in 1:nmethods){ # k in method names again
         cat("\t",names(ps_fitted_list[[i]]$Subset1)[k],"\n")
         if(j != k){ # BMC computation
           # BMC for Subset1 data
           conc_subset1 <- data.frame(CATplot(vec1 = P_df1[[j]],vec2 = P_df1[[k]],make.plot = FALSE,maxrank = 100), 
                                      method1 = names(ps_fitted_list[[i]]$Subset1)[j], 
                                      method2 = names(ps_fitted_list[[i]]$Subset1)[k],
-                                     ndisc_0.1_method1 = length(adjP_df1[[j]]),
-                                     ndisc_0.1_method2 = length(adjP_df1[[k]]),
-                                     nfeatures = nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),
+                                     #ndisc_0.1_method1 = length(adjP_df1[[j]]),
+                                     #ndisc_0.1_method2 = length(adjP_df1[[k]]),
+                                     nfeatures = ifelse(test = (j < nmethods),yes = nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),no = nrow(ps_fitted_list[[i]]$Subset1[[j]])),
                                      comparison = i,
                                      subset = "1")
           # BMC for Subset2 data
           conc_subset2 <- data.frame(CATplot(vec1 = P_df2[[j]],vec2 = P_df2[[k]],make.plot = FALSE,maxrank = 100), 
                                      method1 = names(ps_fitted_list[[i]]$Subset2)[j], 
                                      method2 = names(ps_fitted_list[[i]]$Subset2)[k],
-                                     ndisc_0.1_method1 = length(adjP_df2[[j]]),
-                                     ndisc_0.1_method2 = length(adjP_df2[[k]]),
-                                     nfeatures = nrow(ps_fitted_list[[i]]$Subset2[[j]]$pValMat),
+                                     #ndisc_0.1_method1 = length(adjP_df2[[j]]),
+                                     #ndisc_0.1_method2 = length(adjP_df2[[k]]),
+                                     nfeatures = ifelse(test = (j < nmethods),yes = nrow(ps_fitted_list[[i]]$Subset2[[j]]$pValMat),no = nrow(ps_fitted_list[[i]]$Subset2[[j]])),
                                      comparison = i,
                                      subset = "2")
           conc <- rbind(conc_subset1,conc_subset2)
@@ -170,10 +187,10 @@ compute_concordance <- function(ps_fitted_list){
           conc <- data.frame(CATplot(vec1 = P_df1[[j]],vec2 = P_df2[[k]],make.plot = FALSE,maxrank = 100), 
                              method1 = names(ps_fitted_list[[i]]$Subset1)[j], 
                              method2 = names(ps_fitted_list[[i]]$Subset2)[k],
-                             ndisc_0.1_method1 = length(adjP_df1[[j]]),
-                             ndisc_0.1_method2 = length(adjP_df2[[k]]),
-                             nfeatures = mean(nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),
-                                              nrow(ps_fitted_list[[i]]$Subset2[[k]]$pValMat)),
+                             #ndisc_0.1_method1 = length(adjP_df1[[j]]),
+                             #ndisc_0.1_method2 = length(adjP_df2[[k]]),
+                             nfeatures = mean(ifelse(test = (j < nmethods),yes = nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),no = nrow(ps_fitted_list[[i]]$Subset1[[j]])),
+                                              ifelse(test = (j < nmethods),yes = nrow(ps_fitted_list[[i]]$Subset2[[k]]$pValMat),no = nrow(ps_fitted_list[[i]]$Subset2[[k]]))),
                              comparison = i,
                              subset = "1vs2")
         }
