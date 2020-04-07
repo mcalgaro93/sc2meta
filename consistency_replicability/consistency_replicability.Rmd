@@ -175,7 +175,7 @@ plot_grid(plotlist = compute_MDS(ps_list_WMS$CRC,normalization = "TSS",color = "
 
 # Consistency and Replicability
 
-## Subsetting in 10 datasets
+## Subsetting in 100 datasets
 
 ### WMS datasets
 
@@ -451,7 +451,7 @@ if(!file.exists("../data/16Ssubsets_replicability.RData")){
 
 ### WMS
 
-This takes a long time.
+This takes a long time. For songbird method we run on a server "songbird_data_preparation.R" to prepare single dataset for songbird pipelines, "consistency_replicability_songbird.bash" to run songbird and "consistency_replicability_aggregation.R" to collect all the outputs and create a single .RData file for 16S and WMS data.
 
 ```{r}
 # high diversity
@@ -507,21 +507,22 @@ if(!file.exists("../data/16Sdatasets_for_replicability_DA_subgingival_supragingi
 
 ```{r} 
 # high diversity
-load(file = "../data/WMSdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
-if(!file.exists("../data/WMSconcordance_TongueDorsum_Stool.RData")){
+WMSsubsets_replicability_DA <- readRDS(file = "../data/WMSsubsets_replicability_DA_total.RDS")
+ps_fitted_list <- WMSsubsets_replicability_DA$tonguedorsum_stool
+if(!file.exists("../data/WMSconcordance_tonguedorsum_stool.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
-  save(conc_df,file = "../data/WMSconcordance_TongueDorsum_Stool.RData")
-} else load(file = "../data/WMSconcordance_TongueDorsum_Stool.RData")
+  save(conc_df,file = "../data/WMSconcordance_tonguedorsum_stool.RData")
+} else load(file = "../data/WMSconcordance_tonguedorsum_stool.RData")
 
 # mid diversity
-load(file = "../data/WMSdatasets_for_replicability_DA_schizophrenia_control.RData")
+ps_fitted_list <- WMSsubsets_replicability_DA$schizophrenia_control
 if(!file.exists("../data/WMSconcordance_schizophrenia_control.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/WMSconcordance_schizophrenia_control.RData")
 } else load(file = "../data/WMSconcordance_schizophrenia_control.RData")
 
 # low diversity
-load(file = "../data/WMSdatasets_for_replicability_DA_CRC_control.RData")
+ps_fitted_list <- WMSsubsets_replicability_DA$CRC_control
 if(!file.exists("../data/WMSconcordance_CRC_control.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/WMSconcordance_CRC_control.RData")
@@ -532,21 +533,22 @@ if(!file.exists("../data/WMSconcordance_CRC_control.RData")){
 
 ```{r} 
 # high diversity
-load(file = "../data/16Sdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
-if(!file.exists("../data/16Sconcordance_TongueDorsum_Stool.RData")){
+subsets_replicability_DA_16S <- readRDS(file = "../data/16Ssubsets_replicability_DA_total.RDS")
+ps_fitted_list <- subsets_replicability_DA_16S$tonguedorsum_stool
+if(!file.exists("../data/16Sconcordance_tonguedorsum_stool.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
-  save(conc_df,file = "../data/16Sconcordance_TongueDorsum_Stool.RData")
-} else load(file = "../data/16Sconcordance_TongueDorsum_Stool.RData")
+  save(conc_df,file = "../data/16Sconcordance_tonguedorsum_stool.RData")
+} else load(file = "../data/16Sconcordance_tonguedorsum_stool.RData")
 
 # mid diversity
-load(file = "../data/16Sdatasets_for_replicability_DA_gingiva_mucosa.RData")
+ps_fitted_list <- subsets_replicability_DA_16S$gingiva_mucosa
 if(!file.exists("../data/16Sconcordance_gingiva_mucosa.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/16Sconcordance_gingiva_mucosa.RData")
 } else load(file = "../data/16Sconcordance_gingiva_mucosa.RData")
 
 # low diversity
-load(file = "../data/16Sdatasets_for_replicability_DA_subgingival_supragingival.RData")
+ps_fitted_list <- subsets_replicability_DA_16S$subgingival_supragingival
 if(!file.exists("../data/16Sconcordance_subgingival_supragingival.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/16Sconcordance_subgingival_supragingival.RData")
