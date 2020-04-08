@@ -98,23 +98,23 @@ Use "sbatch mock_comparison.bash" with "mock_16S_comparison_script.R" and "mock_
 
 The final 16S and WMS mock comparison objects are heavy ~400MB, they are not loaded in github. Skip to plots.
 
-```{r}
-# source("../eval_functions.R")
-# if(!file.exists("../data/Stool_16S_mockDA.RDS")){
-#   Stool_16S_mockDA <- apply(mock_df,1,function(x){
-#     Stool_16S_WMS$Stool_16S@sam_data$grp <- x
-#     oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_16S, epsilon = 1e10)
-#   })
-#   saveRDS(Stool_16S_mockDA,file = "../data/Stool_16S_mockDA.RDS")
-# } else Stool_16S_mockDA <- readRDS("../data/Stool_16S_mockDA.RDS")
-# 
-# if(!file.exists("../data/Stool_WMS_mockDA.RDS")){
-#   Stool_WMS_mockDA <- apply(mock_df,1,function(x){
-#     Stool_16S_WMS$Stool_WMS@sam_data$grp <- x
-#     oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_WMS, epsilon = 1e10)
-#   })
-#   saveRDS(Stool_WMS_mockDA,file = "../data/Stool_WMS_mockDA.RDS")
-# } else Stool_WMS_mockDA <- readRDS("../data/Stool_WMS_mockDA.RDS")
+```{r, eval=FALSE}
+source("../eval_functions.R")
+if(!file.exists("../data/Stool_16S_mockDA.RDS")){
+  Stool_16S_mockDA <- apply(mock_df,1,function(x){
+    Stool_16S_WMS$Stool_16S@sam_data$grp <- x
+    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_16S, epsilon = 1e10)
+  })
+  saveRDS(Stool_16S_mockDA,file = "../data/Stool_16S_mockDA.RDS")
+} else Stool_16S_mockDA <- readRDS("../data/Stool_16S_mockDA.RDS")
+
+if(!file.exists("../data/Stool_WMS_mockDA.RDS")){
+  Stool_WMS_mockDA <- apply(mock_df,1,function(x){
+    Stool_16S_WMS$Stool_WMS@sam_data$grp <- x
+    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_WMS, epsilon = 1e10)
+  })
+  saveRDS(Stool_WMS_mockDA,file = "../data/Stool_WMS_mockDA.RDS")
+} else Stool_WMS_mockDA <- readRDS("../data/Stool_WMS_mockDA.RDS")
 ```
 
 # Plot
@@ -274,7 +274,7 @@ legend_method <- function(dataset, nrow){
 }
 ```
 
-```{r, fig.height=13, fig.width=15}
+```{r, fig.height=14, fig.width=16}
 if(!file.exists("../data/TIEC_16S_plot.RDS")){
   dataplot_16S <- produce_pval_df(ps_fitted_list = Stool_16S_mockDA,pval_type = "raw")
   saveRDS(dataplot_16S,file = "../data/TIEC_16S_plot.RDS")
@@ -313,6 +313,10 @@ leg <- legend_method(dataset = dataplot_16S, nrow = 3)
 
 fig <- plot_grid(abecdf,leg,nrow = 2,rel_heights = c(1,0.1))
 fig
+
+# svg(filename = "../../fig3.svg",width = 16, height = 14)
+# fig
+# dev.off()
 ```
 
 
