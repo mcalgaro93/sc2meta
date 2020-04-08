@@ -242,12 +242,15 @@ gheat <- function(AUC_AOC_between_methods,concordance_df_summary,tech,comp){
                                                            "limma_voom_TMM",
                                                            "limma_voom_TMM_zinbwave",
                                                            "ALDEx2",
+                                                           "songbird",
                                                            "mgsZig_CSS",
+                                                           "corncob_LRT",
+                                                           "corncob_wald",
                                                            "MAST",
                                                            "seurat_wilcoxon",
                                                            "scde"),ordered = TRUE)
   g_legend_dendrogram <- get_legend(ggplot() + 
-                                      geom_point(data=forlegend, aes(x=method1, y=1,color=method1),size = 5) +
+                                      geom_point(data=forlegend, aes(x = method1, y = 1, color = method1),size = 5) +
                                       scale_color_manual(values = cols) +
                                       theme_minimal() +
                                       theme(legend.position = "bottom") +
