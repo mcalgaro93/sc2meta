@@ -24,7 +24,7 @@ output:
 }
 </style>
 
-```{r setup, include=FALSE}
+```{r setup, eval=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -175,11 +175,15 @@ plot_grid(plotlist = compute_MDS(ps_list_WMS$CRC,normalization = "TSS",color = "
 
 # Consistency and Replicability
 
+To keep lighter github repository, data from each step of data preparation and DA analysis computation are not saved in the "../data" directory. Use the ready computed concordances files instead.
+
 ## Subsetting in 100 datasets
+
+This is the code used to create reproducible subsets of the original datasets. It was necessary to repeat the random subsets generation process for each dataset instead of creating a proper method, because of issues on environmental variables when using "subset_samples(...)".
 
 ### WMS datasets
 
-```{r}
+```{r, eval=FALSE}
 if(!file.exists("../data/WMSsubsets_replicability.RData")){
   # low diversity
   ps = ps_list_WMS$CRC
@@ -313,7 +317,7 @@ if(!file.exists("../data/WMSsubsets_replicability.RData")){
 
 ### 16S datasets
 
-```{r}
+```{r, eval=FALSE}
 if(!file.exists("../data/16Ssubsets_replicability.RData")){
   # low diversity
   ps = ps_list_16S$Subgingival_Supragingival
@@ -447,82 +451,40 @@ if(!file.exists("../data/16Ssubsets_replicability.RData")){
 } else load("../data/16Ssubsets_replicability.RData")
 ```
 
+For some of the generated subsets, corncob DA detection methods will fail. It is suggested to generate more than 100 subsets and replace the failed outputs. (I did it manually directly on the server).
+
 ## Differential abundance testing
 
 ### WMS
 
-This takes a long time. For songbird method we run on a server "songbird_data_preparation.R" to prepare single dataset for songbird pipelines, "consistency_replicability_songbird.bash" to run songbird and "consistency_replicability_aggregation.R" to collect all the outputs and create a single .RData file for 16S and WMS data.
+"consistency_replicability_WMS_comparison_script.R", "consistency_replicability_WMS_comparison.bash" files, "consistency_replicability_16S_comparison_script.R", "consistency_replicability_16S_comparison.bash", were used to perform DA analysis using job-arrays. 
 
-```{r}
-# high diversity
-ps_list <- subsets_consistency_replicability_WMS$tonguedorsum_stool
-if(!file.exists("../data/WMSdatasets_for_replicability_DA_TongueDorsum_Stool.RData")){
-  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
-  save(ps_fitted_list,file = "../data/WMSdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
-} else load("../data/WMSdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
-
-# mid diversity
-ps_list <- subsets_consistency_replicability_WMS$schizophrenia_control
-if(!file.exists("../data/WMSdatasets_for_replicability_DA_schizophrenia_control.RData")){
-  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
-  save(ps_fitted_list,file = "../data/WMSdatasets_for_replicability_DA_schizophrenia_control.RData")
-} else load("../data/WMSdatasets_for_replicability_DA_schizophrenia_control.RData")
-
-# low diversity
-ps_list <- subsets_consistency_replicability_WMS$CRC_control
-if(!file.exists("../data/WMSdatasets_for_replicability_DA_CRC_control.RData")){
-  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
-  save(ps_fitted_list,file = "../data/WMSdatasets_for_replicability_DA_CRC_control.RData")
-} else load("../data/WMSdatasets_for_replicability_DA_CRC_control.RData")
-```
-
-### 16S
-
-```{r}
-# high diversity
-ps_list <- subsets_consistency_replicability_16S$tonguedorsum_stool
-if(!file.exists("../data/16Sdatasets_for_replicability_DA_TongueDorsum_Stool.RData")){
-  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
-  save(ps_fitted_list,file = "../data/16Sdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
-} else load("../data/16Sdatasets_for_replicability_DA_TongueDorsum_Stool.RData")
-
-# mid diversity
-ps_list <- subsets_consistency_replicability_16S$gingiva_mucosa
-if(!file.exists("../data/16Sdatasets_for_replicability_DA_gingiva_mucosa.RData")){
-  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
-  save(ps_fitted_list,file = "../data/16Sdatasets_for_replicability_DA_gingiva_mucosa.RData")
-} else load("../data/16Sdatasets_for_replicability_DA_gingiva_mucosa.RData")
-
-# low diversity
-ps_list <- subsets_consistency_replicability_16S$subgingival_supragingival
-if(!file.exists("../data/16Sdatasets_for_replicability_DA_subgingival_supragingival.RData")){
-  ps_fitted_list <- lapply(ps_list, function(comparison) lapply(comparison,oneSimRunGSOwn,epsilon = 1e14))
-  save(ps_fitted_list,file = "../data/16Sdatasets_for_replicability_DA_subgingival_supragingival.RData")
-} else load("../data/16Sdatasets_for_replicability_DA_subgingival_supragingival.RData")
-```
+This takes a long time. On a server "songbird_data_preparation.R" run to prepare single dataset for songbird pipelines, "consistency_replicability_songbird.bash" run songbird and "consistency_replicability_aggregation.R" collected all the outputs and created a single .RData file for 16S and WMS data.
 
 ## Between Dataset Concordance and Within Dataset Concordance 
 
+
+
 ### WMS
 
-```{r} 
+```{r, eval=FALSE} 
 # high diversity
-WMSsubsets_replicability_DA <- readRDS(file = "../data/WMSsubsets_replicability_DA_total.RDS")
-ps_fitted_list <- WMSsubsets_replicability_DA$tonguedorsum_stool
+# WMSsubsets_replicability_DA <- readRDS(file = "../data/WMSsubsets_replicability_DA_total.RDS")
+# ps_fitted_list <- WMSsubsets_replicability_DA$tonguedorsum_stool
 if(!file.exists("../data/WMSconcordance_tonguedorsum_stool.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/WMSconcordance_tonguedorsum_stool.RData")
 } else load(file = "../data/WMSconcordance_tonguedorsum_stool.RData")
 
 # mid diversity
-ps_fitted_list <- WMSsubsets_replicability_DA$schizophrenia_control
+# ps_fitted_list <- WMSsubsets_replicability_DA$schizophrenia_control
 if(!file.exists("../data/WMSconcordance_schizophrenia_control.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/WMSconcordance_schizophrenia_control.RData")
 } else load(file = "../data/WMSconcordance_schizophrenia_control.RData")
 
 # low diversity
-ps_fitted_list <- WMSsubsets_replicability_DA$CRC_control
+# ps_fitted_list <- WMSsubsets_replicability_DA$CRC_control
 if(!file.exists("../data/WMSconcordance_CRC_control.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/WMSconcordance_CRC_control.RData")
@@ -531,24 +493,24 @@ if(!file.exists("../data/WMSconcordance_CRC_control.RData")){
 
 ### 16S
 
-```{r} 
+```{r, eval=FALSE} 
 # high diversity
-subsets_replicability_DA_16S <- readRDS(file = "../data/16Ssubsets_replicability_DA_total.RDS")
-ps_fitted_list <- subsets_replicability_DA_16S$tonguedorsum_stool
+# subsets_replicability_DA_16S <- readRDS(file = "../data/16Ssubsets_replicability_DA_total.RDS")
+# ps_fitted_list <- subsets_replicability_DA_16S$tonguedorsum_stool
 if(!file.exists("../data/16Sconcordance_tonguedorsum_stool.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/16Sconcordance_tonguedorsum_stool.RData")
 } else load(file = "../data/16Sconcordance_tonguedorsum_stool.RData")
 
 # mid diversity
-ps_fitted_list <- subsets_replicability_DA_16S$gingiva_mucosa
+# ps_fitted_list <- subsets_replicability_DA_16S$gingiva_mucosa
 if(!file.exists("../data/16Sconcordance_gingiva_mucosa.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/16Sconcordance_gingiva_mucosa.RData")
 } else load(file = "../data/16Sconcordance_gingiva_mucosa.RData")
 
 # low diversity
-ps_fitted_list <- subsets_replicability_DA_16S$subgingival_supragingival
+# ps_fitted_list <- subsets_replicability_DA_16S$subgingival_supragingival
 if(!file.exists("../data/16Sconcordance_subgingival_supragingival.RData")){
   conc_df <- compute_concordance(ps_fitted_list = ps_fitted_list)
   save(conc_df,file = "../data/16Sconcordance_subgingival_supragingival.RData")
@@ -557,16 +519,16 @@ if(!file.exists("../data/16Sconcordance_subgingival_supragingival.RData")){
 
 # Plots
 
-```{r, fig.width=15, fig.height=9.5}
-load("../data/WMSconcordance_TongueDorsum_Stool.RData")
+```{r, fig.width=17, fig.height=11}
+load("../data/WMSconcordance_tonguedorsum_stool.RData")
 conc_df_WMS <- conc_df
-load("../data/16Sconcordance_TongueDorsum_Stool.RData")
+load("../data/16Sconcordance_tonguedorsum_stool.RData")
 conc_df_16S <- conc_df
 
 conc_df <- rbind(data.frame(conc_df_16S,tech = "16S",comp = "TongueDorsum_Stool"),
                  data.frame(conc_df_WMS,tech = "WMS",comp = "TongueDorsum_Stool"))
 
-concordance_df_summary <- suppressWarnings(ddply(conc_df, ~ tech + comp + rank + method1 + method2, function(x) colMeans(x[,c("concordance","ndisc_0.1_method1","ndisc_0.1_method2","nfeatures")])))
+concordance_df_summary <- suppressWarnings(ddply(conc_df, ~ tech + comp + rank + method1 + method2, function(x) colMeans(x[,c("concordance","nfeatures")])))
 AUC_AOC_between_methods <- suppressWarnings(ddply(concordance_df_summary, ~ tech + comp + method1 + method2, function(x) AucAocFun(cVals = x$concordance[x$rank <= 100], nfeatures = mean(x$nfeatures[x$rank <= 100]), threshold = 100)))
 
 a <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
