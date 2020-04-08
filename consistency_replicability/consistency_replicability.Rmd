@@ -463,8 +463,6 @@ This takes a long time. On a server "songbird_data_preparation.R" run to prepare
 
 ## Between Dataset Concordance and Within Dataset Concordance 
 
-
-
 ### WMS
 
 ```{r, eval=FALSE} 
@@ -520,17 +518,44 @@ if(!file.exists("../data/16Sconcordance_subgingival_supragingival.RData")){
 # Plots
 
 ```{r, fig.width=17, fig.height=11}
-load("../data/WMSconcordance_tonguedorsum_stool.RData")
-conc_df_WMS <- conc_df
-load("../data/16Sconcordance_tonguedorsum_stool.RData")
-conc_df_16S <- conc_df
+if(!file.exists("../data/concordance_all_datasets.RDS")){
+  load("../data/WMSconcordance_tonguedorsum_stool.RData")
+  conc_df_WMS_high <- conc_df
+  load("../data/16Sconcordance_tonguedorsum_stool.RData")
+  conc_df_16S_high <- conc_df
+  
+  load("../data/WMSconcordance_schizophrenia_control.RData")
+  conc_df_WMS_mid <- conc_df
+  load("../data/16Sconcordance_gingiva_mucosa.RData")
+  conc_df_16S_mid <- conc_df
+  
+  load("../data/WMSconcordance_CRC_control.RData")
+  conc_df_WMS_low <- conc_df
+  load("../data/16Sconcordance_subgingival_supragingival.RData")
+  conc_df_16S_low <- conc_df
+  
+  conc_df <- rbind(data.frame(conc_df_16S_high,tech = "16S",comp = "TongueDorsum_Stool",diversity = "high"),
+                   data.frame(conc_df_WMS_high,tech = "WMS",comp = "TongueDorsum_Stool",diversity = "high"),
+                   data.frame(conc_df_16S_mid,tech = "16S",comp = "Buccal Mucosa_Gingiva",diversity = "mid"),
+                   data.frame(conc_df_WMS_mid,tech = "WMS",comp = "Schizophrenic_Control Saliva",diversity = "mid"),
+                   data.frame(conc_df_16S_low,tech = "16S",comp = "Subgingival_Supragingival Plaque",diversity = "low"),
+                   data.frame(conc_df_WMS_low,tech = "WMS",comp = "CRC_Control",diversity = "low"))
+  
+  concordance_df_summary <- suppressWarnings(ddply(conc_df, ~ tech + comp + diversity + rank + method1 + method2, function(x) colMeans(x[,c("concordance","nfeatures")])))
+  
+  saveRDS(list(concordance_df_summary = concordance_df_summary,
+               conc_df = conc_df),file = "../data/concordance_all_datasets.RDS")
+} else concordance_list <- readRDS(file = "../data/concordance_all_datasets.RDS")
 
-conc_df <- rbind(data.frame(conc_df_16S,tech = "16S",comp = "TongueDorsum_Stool"),
-                 data.frame(conc_df_WMS,tech = "WMS",comp = "TongueDorsum_Stool"))
+concordance_df_summary <- concordance_list$concordance_df_summary
+conc_df <- concordance_list$conc_df
 
-concordance_df_summary <- suppressWarnings(ddply(conc_df, ~ tech + comp + rank + method1 + method2, function(x) colMeans(x[,c("concordance","nfeatures")])))
-AUC_AOC_between_methods <- suppressWarnings(ddply(concordance_df_summary, ~ tech + comp + method1 + method2, function(x) AucAocFun(cVals = x$concordance[x$rank <= 100], nfeatures = mean(x$nfeatures[x$rank <= 100]), threshold = 100)))
+AUC_AOC_between_methods <- suppressWarnings(ddply(concordance_df_summary, ~ tech + comp + diversity + method1 + method2, function(x) AucAocFun(cVals = x$concordance[x$rank <= 100], nfeatures = mean(x$nfeatures[x$rank <= 100]), threshold = 100)))
+```
 
+## Figure 4 of the manuscript
+
+```{r, fig.width=17, fig.height=11}
 a <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
            concordance_df_summary = concordance_df_summary,
            tech = "16S",
@@ -544,7 +569,62 @@ b <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
 fig <- plot_grid(plot_grid(a$plot,b$plot,ncol = 2,labels = "auto"),
                  plot_grid(a$legend_dendro,a$legend_heat,ncol = 2,rel_widths = c(1,0.4)),nrow = 2,rel_heights = c(1,0.1))
 fig
+
+# svg("../../fig4.svg",width = 17, height = 11)
+# fig
+# dev.off()
 ```
+
+## Supplementary Figure - mid and low diversity datasets
+
+```{r, fig.width=17, fig.height=22}
+c <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
+           concordance_df_summary = concordance_df_summary,
+           tech = "16S",
+           comp = "Buccal Mucosa_Gingiva")
+
+d <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
+           concordance_df_summary = concordance_df_summary,
+           tech = "WMS",
+           comp = "Schizophrenic_Control Saliva")
+
+e <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
+           concordance_df_summary = concordance_df_summary,
+           tech = "16S",
+           comp = "Subgingival_Supragingival Plaque")
+
+f <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
+           concordance_df_summary = concordance_df_summary,
+           tech = "WMS",
+           comp = "CRC_Control")
+
+fig <- plot_grid(plot_grid(c$plot,d$plot,e$plot,f$plot,ncol = 2,labels = "auto"),
+                 plot_grid(c$legend_dendro,c$legend_heat,ncol = 2,rel_widths = c(1,0.4)),nrow = 2,rel_heights = c(1,0.1))
+fig
+
+# svg("../../fig4_mid_low.svg",width = 17, height = 22)
+# fig
+# dev.off()
+```
+
+
+```{r, fig.width=11, fig.height=12}
+
+a5 <- g_AUC50(conc_df = conc_df,div = "high",tech = "16S")
+b5 <- g_AUC50(conc_df = conc_df,div = "high",tech = "WMS")
+c5 <- g_AUC50(conc_df = conc_df,div = "mid",tech = "16S")
+d5 <- g_AUC50(conc_df = conc_df,div = "mid",tech = "WMS")
+e5 <- g_AUC50(conc_df = conc_df,div = "low",tech = "16S")
+f5 <- g_AUC50(conc_df = conc_df,div = "mid",tech = "WMS")
+
+abcde <- plot_grid(a5,b5,c5,d5,e5,f5,nrow = 3,ncol = 2,labels = "auto")
+fig <- plot_grid(abcde,a$legend_dendro,nrow = 2,rel_heights = c(1,0.1))
+
+svg(filename = "../../fig5.svg", width = 11, height = 12)
+fig
+dev.off()
+```
+
 
 
 
