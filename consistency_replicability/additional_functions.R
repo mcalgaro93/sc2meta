@@ -142,7 +142,8 @@ compute_concordance <- function(ps_fitted_list){
       if("pValMat" %in% names(method)){
         out <- method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]
       } else {
-        out <- abs(method[,2])
+        # the CATplot function will sort the differentials of songbird with decreasing = FALSE
+        out <- -abs(method[,2]) # So the first feature should be the largest in rank (that's why the minus)
         names(out) <- rownames(method)
       }
       return(out)
@@ -151,7 +152,8 @@ compute_concordance <- function(ps_fitted_list){
       if("pValMat" %in% names(method)){
         out <- method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]
       } else {
-        out <- abs(method[,2])
+        # the CATplot function will sort the differentials of songbird with decreasing = FALSE
+        out <- -abs(method[,2])
         names(out) <- rownames(method)
       }
       return(out)
@@ -372,14 +374,14 @@ gheat <- function(AUC_AOC_between_methods,concordance_df_summary,tech,comp){
 
 # div = diversity: high, mid, low
 # tech = data type: 16S or WMS
-g_AUC50 <- function(conc_df,div,tech){
-  conc_df_sub <- conc_df[conc_df$rank == 50 & conc_df$subset == "1vs2",]
+g_AUC <- function(conc_df,div,tech, rank = 100){
+  conc_df_sub <- conc_df[conc_df$rank == rank & conc_df$subset == "1vs2",]
   case <- conc_df_sub[conc_df_sub$tech == tech & conc_df_sub$diversity == div,]
   ord <- order(ddply(case,.variables = ~ method1, function(x) median(x[,"concordance"]))$V1)
   ggplot(case,aes(x = method1, y = concordance, color = method1)) +
     geom_boxplot() +
     coord_flip() +
-    scale_x_discrete(limits = levels(case$method1)[rev(ord)]) +
+    scale_x_discrete(limits = unique(case$method1)[rev(ord)]) +
     xlab("Method") + ylab("Concordance") +
     ggtitle(label = paste(strsplit(as.character(unique(case$comp)),split = "_")[[1]],collapse = " vs "),
             subtitle = paste(unique(case$tech),"-",unique(case$diversity),"diversity")) +
