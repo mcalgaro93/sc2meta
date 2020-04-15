@@ -541,6 +541,17 @@ if(!file.exists("../data/concordance_all_datasets.RDS")){
                    data.frame(conc_df_16S_low,tech = "16S",comp = "Subgingival_Supragingival Plaque",diversity = "low"),
                    data.frame(conc_df_WMS_low,tech = "WMS",comp = "CRC_Control",diversity = "low"))
   
+  # Some methods fail some tests but the number of feature should be always the same for each comparison and subset.
+  nfeatures_correction <- suppressWarnings(ddply(conc_df, ~ comparison + subset, function(x) max(x$nfeatures)))
+  
+  for(i in 1:nrow(nfeatures_correction)){
+    comparison <- nfeatures_correction[i,1]
+    subset <- as.character(nfeatures_correction[i,2])
+    nfeatures <- nfeatures_correction[i,3]
+    cat("Running: ",comparison,subset,nfeatures,"\n")
+    conc_df[conc_df$comparison == comparison & conc_df$subset == subset, "nfeatures"] <- nfeatures
+  }
+  
   concordance_df_summary <- suppressWarnings(ddply(conc_df, ~ tech + comp + diversity + rank + method1 + method2, function(x) colMeans(x[,c("concordance","nfeatures")])))
   
   saveRDS(list(concordance_df_summary = concordance_df_summary,
@@ -570,9 +581,9 @@ fig <- plot_grid(plot_grid(a$plot,b$plot,ncol = 2,labels = "auto"),
                  plot_grid(a$legend_dendro,a$legend_heat,ncol = 2,rel_widths = c(1,0.4)),nrow = 2,rel_heights = c(1,0.1))
 fig
 
-# svg("../../fig4.svg",width = 17, height = 11)
-# fig
-# dev.off()
+svg("../../fig4.svg",width = 17, height = 11)
+fig
+dev.off()
 ```
 
 ## Supplementary Figure - mid and low diversity datasets
@@ -602,25 +613,25 @@ fig <- plot_grid(plot_grid(c$plot,d$plot,e$plot,f$plot,ncol = 2,labels = "auto")
                  plot_grid(c$legend_dendro,c$legend_heat,ncol = 2,rel_widths = c(1,0.4)),nrow = 2,rel_heights = c(1,0.1))
 fig
 
-# svg("../../fig4_mid_low.svg",width = 17, height = 22)
-# fig
-# dev.off()
+svg("../../fig4_mid_low.svg",width = 17, height = 22)
+fig
+dev.off()
 ```
 
 
 ```{r, fig.width=11, fig.height=12}
 
-a5 <- g_AUC50(conc_df = conc_df,div = "high",tech = "16S")
-b5 <- g_AUC50(conc_df = conc_df,div = "high",tech = "WMS")
-c5 <- g_AUC50(conc_df = conc_df,div = "mid",tech = "16S")
-d5 <- g_AUC50(conc_df = conc_df,div = "mid",tech = "WMS")
-e5 <- g_AUC50(conc_df = conc_df,div = "low",tech = "16S")
-f5 <- g_AUC50(conc_df = conc_df,div = "mid",tech = "WMS")
+a5 <- g_AUC(conc_df = conc_df,div = "high",tech = "16S")
+b5 <- g_AUC(conc_df = conc_df,div = "high",tech = "WMS")
+c5 <- g_AUC(conc_df = conc_df,div = "mid",tech = "16S")
+d5 <- g_AUC(conc_df = conc_df,div = "mid",tech = "WMS")
+e5 <- g_AUC(conc_df = conc_df,div = "low",tech = "16S")
+f5 <- g_AUC(conc_df = conc_df,div = "low",tech = "WMS")
 
 abcde <- plot_grid(a5,b5,c5,d5,e5,f5,nrow = 3,ncol = 2,labels = "auto")
 fig <- plot_grid(abcde,a$legend_dendro,nrow = 2,rel_heights = c(1,0.1))
 
-svg(filename = "../../fig5.svg", width = 11, height = 12)
+svg(filename = "../../fig5_rank100.svg", width = 11, height = 12)
 fig
 dev.off()
 ```
