@@ -766,7 +766,7 @@ mixMCmodel <- function(physeq, variable_name = "grp"){
   out <- data.frame(cbind("taxa" = rownames(loadings), "value" = loadings),row.names = rownames(loadings))
   # plotLoadings(physeq.splsda, comp = 1, method = 'mean', contrib = 'max',
   #              size.title = 1, ndisplay = 50, size.name = 0.5, size.legend = 0.3)
-  return(out)
+  return(list("statInfo" = out))
 }# END - function: mixMC
 
 # Too time consuming
