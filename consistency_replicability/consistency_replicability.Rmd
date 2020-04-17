@@ -451,7 +451,7 @@ if(!file.exists("../data/16Ssubsets_replicability.RData")){
 } else load("../data/16Ssubsets_replicability.RData")
 ```
 
-For some of the generated subsets, corncob DA detection methods will fail. It is suggested to generate more than 100 subsets and replace the failed outputs. (I did it manually directly on the server).
+For some of the generated subsets in TongueDorsum vs Stool 16S comparisons, corncob DA detection methods will fail cause of the high sparsity and the low sample size. It is suggested to generate more than 100 subsets and replace the failed outputs. (I did it manually directly on the server).
 
 ## Differential abundance testing
 
@@ -630,6 +630,7 @@ f5 <- g_AUC(conc_df = conc_df,div = "low",tech = "WMS")
 
 abcde <- plot_grid(a5,b5,c5,d5,e5,f5,nrow = 3,ncol = 2,labels = "auto")
 fig <- plot_grid(abcde,a$legend_dendro,nrow = 2,rel_heights = c(1,0.1))
+fig
 
 svg(filename = "../../fig5_rank100.svg", width = 11, height = 12)
 fig
