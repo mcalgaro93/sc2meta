@@ -27,7 +27,8 @@ pkgs <- c("edgeR",
           "crayon",
           "ALDEx2",
           "corncob",
-          "selbal")
+          "selbal",
+          "mixOmics")
 for(i in pkgs) { library(i, quietly=TRUE, verbose=FALSE, warn.conflicts=FALSE, character.only=TRUE) }
 
 register(SerialParam())
@@ -722,6 +723,52 @@ corncobmodel <- function(physeq, design = as.formula("~ grp"), test = c("Wald","
   return(list("pValMat" = pValMat,"statInfo" = statInfo))
 }# END - function: corncob
 
+mixMCmodel <- function(physeq, variable_name = "grp"){
+  ### force orientation OTUs x samples
+  if (!taxa_are_rows(physeq))
+  {
+    physeq <- t(physeq)
+  } else {}
+  
+  ## add 1 to zero counts
+  if (any(otu_table(physeq) == 0))
+  {
+    otu_table(physeq) <- otu_table(physeq) + 1L
+  } else {}
+  
+  TSS <- apply(physeq@otu_table,2,function(x) x/sum(x))
+  TSS_transposed <- t(TSS)
+  Y = data.frame(physeq@sam_data)[,variable_name]
+  
+  # first, set a grid of values to test. At least we need 100 values for concordance evaluations.
+  grid.keepX = c(seq(100, ntaxa(physeq), 25))  
+  
+  # tune the sPLS-DA
+  set.seed(123)  # for reproducible results for this code
+  physeq.tune.splsda = tune.splsda(TSS_transposed,
+                                   Y = Y,
+                                   ncomp = 1,
+                                   logratio = 'CLR',
+                                   test.keepX = grid.keepX,
+                                   validation = "loo",
+                                   dist = "max.dist",
+                                   progressBar = TRUE)
+  
+  select.keepX = physeq.tune.splsda$choice.keepX[1]
+  
+  # the sPLS-DA
+  physeq.splsda = splsda(X = TSS_transposed,  
+                         Y = Y, 
+                         ncomp = 1, 
+                         keepX = select.keepX, 
+                         logratio= "CLR")
+  loadings <- selectVar(physeq.splsda, comp = 1)$value
+  out <- data.frame(cbind("taxa" = rownames(loadings), "value" = loadings),row.names = rownames(loadings))
+  # plotLoadings(physeq.splsda, comp = 1, method = 'mean', contrib = 'max',
+  #              size.title = 1, ndisplay = 50, size.name = 0.5, size.legend = 0.3)
+  return(out)
+}# END - function: mixMC
+
 # Too time consuming
 selbalmodel <- function(physeq, variable_name = "grp"){
   ### force orientation OTUs x samples
@@ -838,6 +885,10 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10) {
     ## NODES
     #nodes <- NODESmodel(physeq)
     #cat("NODES Wilcoxon tests: DONE\n")
+    
+    ## mixMC
+    mixMC <- mixMCmodel(physeq)
+    cat("mixMC sPLS-DA: DONE\n")
   })
   return(returnList)
 }
