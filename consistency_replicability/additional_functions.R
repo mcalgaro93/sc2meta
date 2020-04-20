@@ -133,18 +133,19 @@ compute_MDS <- function(ps, normalization = "none" , method = "MDS", distance = 
 compute_concordance <- function(ps_fitted_list){
   conc_df <- NULL
   for(i in 1:length(ps_fitted_list)){ # i in 1:100 comparisons
-    # adjusted pval extraction
-    cat("Comparison",i,"\n")
-    adjP_df1 <- llply(.data = ps_fitted_list[[i]]$Subset1,.fun = function(method) method$pValMat[!is.na(method$pValMat[,2]) & method$pValMat[,2]<0.1,2]) # first half data
-    adjP_df2 <- llply(.data = ps_fitted_list[[i]]$Subset2,.fun = function(method) method$pValMat[!is.na(method$pValMat[,2]) & method$pValMat[,2]<0.1,2]) # second half data
     # pval extraction
     P_df1 <- llply(.data = ps_fitted_list[[i]]$Subset1,.fun = function(method){
       if("pValMat" %in% names(method)){
         out <- method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]
       } else {
-        # the CATplot function will sort the differentials of songbird or the loadings of mixMC with decreasing = FALSE
-        out <- -abs(method[,2]) # So the first feature should be the largest in rank (that's why the minus)
-        names(out) <- rownames(method)
+        if (class(method) == "data.frame"){
+          # The CATplot function will sort the differentials of songbird with decreasing = FALSE
+          out <- -abs(method[,2]) # So the first feature should be the largest in rank (that's why the minus)
+          names(out) <- rownames(method)
+        } else { # The same for the loadings of mixMC 
+          out <- -abs(method$statInfo[,2])
+          names(out) <- rownames(method$statInfo)
+        }
       }
       return(out)
     }) # first half data
@@ -152,9 +153,14 @@ compute_concordance <- function(ps_fitted_list){
       if("pValMat" %in% names(method)){
         out <- method$pValMat[!is.na(method$pValMat[,1]) & method$pValMat[,1]<1,1]
       } else {
-        # the CATplot function will sort the differentials of songbird with decreasing = FALSE
-        out <- -abs(method[,2])
-        names(out) <- rownames(method)
+        if (class(method) == "data.frame"){
+          # The CATplot function will sort the differentials of songbird with decreasing = FALSE
+          out <- -abs(method[,2]) # So the first feature should be the largest in rank (that's why the minus)
+          names(out) <- rownames(method)
+        } else { # The same for the loadings of mixMC 
+          out <- -abs(method$statInfo[,2])
+          names(out) <- rownames(method$statInfo)
+        }
       }
       return(out)
     })  # second half data
@@ -171,8 +177,11 @@ compute_concordance <- function(ps_fitted_list){
                                      method2 = names(ps_fitted_list[[i]]$Subset1)[k],
                                      #ndisc_0.1_method1 = length(adjP_df1[[j]]),
                                      #ndisc_0.1_method2 = length(adjP_df1[[k]]),
-                                     ## nmethods - 1 because the last two methods are songbird and mixMC. They don't have pValMat.
-                                     nfeatures = ifelse(test = (j < (nmethods-1)),yes = nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),no = nrow(ps_fitted_list[[i]]$Subset1[[j]])),
+                                     nfeatures = ifelse(test = ("pValMat" %in% names(ps_fitted_list[[i]]$Subset1[[j]])),
+                                                        yes = nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),
+                                                        no = ifelse(test = class(ps_fitted_list[[i]]$Subset1[[j]]) == "data.frame",
+                                                                    yes = nrow(ps_fitted_list[[i]]$Subset1[[j]]),
+                                                                    no = nrow(ps_fitted_list[[i]]$Subset1[[j]]$statInfo))),
                                      comparison = i,
                                      subset = "1")
           # BMC for Subset2 data
@@ -181,7 +190,11 @@ compute_concordance <- function(ps_fitted_list){
                                      method2 = names(ps_fitted_list[[i]]$Subset2)[k],
                                      #ndisc_0.1_method1 = length(adjP_df2[[j]]),
                                      #ndisc_0.1_method2 = length(adjP_df2[[k]]),
-                                     nfeatures = ifelse(test = (j < (nmethods-1)),yes = nrow(ps_fitted_list[[i]]$Subset2[[j]]$pValMat),no = nrow(ps_fitted_list[[i]]$Subset2[[j]])),
+                                     nfeatures = ifelse(test = ("pValMat" %in% names(ps_fitted_list[[i]]$Subset2[[j]])),
+                                                        yes = nrow(ps_fitted_list[[i]]$Subset2[[j]]$pValMat),
+                                                        no = ifelse(test = class(ps_fitted_list[[i]]$Subset2[[j]]) == "data.frame",
+                                                                    yes = nrow(ps_fitted_list[[i]]$Subset2[[j]]),
+                                                                    no = nrow(ps_fitted_list[[i]]$Subset2[[j]]$statInfo))),
                                      comparison = i,
                                      subset = "2")
           conc <- rbind(conc_subset1,conc_subset2)
@@ -192,8 +205,16 @@ compute_concordance <- function(ps_fitted_list){
                              method2 = names(ps_fitted_list[[i]]$Subset2)[k],
                              #ndisc_0.1_method1 = length(adjP_df1[[j]]),
                              #ndisc_0.1_method2 = length(adjP_df2[[k]]),
-                             nfeatures = mean(ifelse(test = (j < (nmethods-1)),yes = nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),no = nrow(ps_fitted_list[[i]]$Subset1[[j]])),
-                                              ifelse(test = (j < (nmethods-1)),yes = nrow(ps_fitted_list[[i]]$Subset2[[k]]$pValMat),no = nrow(ps_fitted_list[[i]]$Subset2[[k]]))),
+                             nfeatures = mean(ifelse(test = ("pValMat" %in% names(ps_fitted_list[[i]]$Subset1[[j]])),
+                                                     yes = nrow(ps_fitted_list[[i]]$Subset1[[j]]$pValMat),
+                                                     no = ifelse(test = class(ps_fitted_list[[i]]$Subset1[[j]]) == "data.frame",
+                                                                 yes = nrow(ps_fitted_list[[i]]$Subset1[[j]]),
+                                                                 no = nrow(ps_fitted_list[[i]]$Subset1[[j]]$statInfo))),
+                                              ifelse(test = ("pValMat" %in% names(ps_fitted_list[[i]]$Subset2[[k]])),
+                                                     yes = nrow(ps_fitted_list[[i]]$Subset2[[k]]$pValMat),
+                                                     no = ifelse(test = class(ps_fitted_list[[i]]$Subset2[[k]]) == "data.frame",
+                                                                 yes = nrow(ps_fitted_list[[i]]$Subset2[[k]]),
+                                                                 no = nrow(ps_fitted_list[[i]]$Subset2[[k]]$statInfo)))),
                              comparison = i,
                              subset = "1vs2")
         }
