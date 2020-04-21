@@ -566,7 +566,7 @@ AUC_AOC_between_methods <- suppressWarnings(ddply(concordance_df_summary, ~ tech
 
 ## Figure 4 of the manuscript
 
-```{r, fig.width=17, fig.height=11}
+```{r, fig.width=18, fig.height=12}
 a <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
            concordance_df_summary = concordance_df_summary,
            tech = "16S",
@@ -581,14 +581,14 @@ fig <- plot_grid(plot_grid(a$plot,b$plot,ncol = 2,labels = "auto"),
                  plot_grid(a$legend_dendro,a$legend_heat,ncol = 2,rel_widths = c(1,0.4)),nrow = 2,rel_heights = c(1,0.1))
 fig
 
-svg("../../fig4.svg",width = 17, height = 11)
+svg("../../fig4.svg",width = 18, height = 12)
 fig
 dev.off()
 ```
 
 ## Supplementary Figure - mid and low diversity datasets
 
-```{r, fig.width=17, fig.height=22}
+```{r, fig.width=18, fig.height=24}
 c <- gheat(AUC_AOC_between_methods = AUC_AOC_between_methods,
            concordance_df_summary = concordance_df_summary,
            tech = "16S",
@@ -613,7 +613,7 @@ fig <- plot_grid(plot_grid(c$plot,d$plot,e$plot,f$plot,ncol = 2,labels = "auto")
                  plot_grid(c$legend_dendro,c$legend_heat,ncol = 2,rel_widths = c(1,0.4)),nrow = 2,rel_heights = c(1,0.1))
 fig
 
-svg("../../fig4_mid_low.svg",width = 17, height = 22)
+svg("../../fig4_mid_low.svg",width = 18, height = 24)
 fig
 dev.off()
 ```
