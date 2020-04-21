@@ -9,6 +9,8 @@ cols <- c(
 brewer.pal(n = 9, "Blues")[c(3,5)],
 # songbird
 brewer.pal(n = 9, "Blues")[7],
+# mixMC
+brewer.pal(n = 9, "OrRd")[6],
 # 4 DESeq2
 brewer.pal(n = 9,"YlOrBr")[c(4,7,7,8,9,5)],
 # 5 edgeR
@@ -25,6 +27,7 @@ methods <- c("ALDEx2",
              "corncob_LRT",
              "corncob_wald",
              "songbird",
+             "mixMC",
              "DESeq2_poscounts",
              "DESeq2_poscounts_trueweights",
              "deSeq2_poscounts_trueweights",
