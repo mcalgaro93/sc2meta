@@ -270,6 +270,7 @@ gheat <- function(AUC_AOC_between_methods,concordance_df_summary,tech,comp){
                                                            "mgsZig_CSS",
                                                            "corncob_LRT",
                                                            "corncob_wald",
+                                                           "mixMC",
                                                            "MAST",
                                                            "seurat_wilcoxon",
                                                            "scde"),ordered = TRUE)
