@@ -319,8 +319,134 @@ fig
 # dev.off()
 ```
 
+# Summary
 
+Average KS statistics and divergence of fraction of false discoveries from nominal values between simulations to rank methods.
 
+```{r, eval=FALSE}
+Stool_WMS <- readRDS(file = "../data/Stool_WMS_mockDA.RDS")
+Stool_16S <- readRDS(file = "../data/Stool_16S_mockDA.RDS")
+
+### discoveries vs alpha nominal
+pVal_df_list_16S <- lapply(X = Stool_16S,FUN = function(Comparison){
+  ldply(Comparison,function(method){
+    data.frame(pVal = method$pValMat[,1])
+  },.id = "Method")
+})
+pVal_df_list_WMS <- lapply(X = Stool_WMS,FUN = function(Comparison){
+  ldply(Comparison,function(method){
+    data.frame(pVal = method$pValMat[,1])
+  },.id = "Method")
+})
+
+pVal_df_16S <- ldply(pVal_df_list_16S,function(x) x, .id = "Comparison")
+pVal_df_WMS <- ldply(pVal_df_list_WMS,function(x) x, .id = "Comparison")
+pVal_df_16S$technology <- "16S"
+pVal_df_WMS$technology <- "WMS"
+pVal_df <- rbind(pVal_df_16S,pVal_df_WMS)
+pVal_df$Method <- factor(pVal_df$Method,levels = c("DESeq2_poscounts",
+                                                   "DESeq2_TMM",
+                                                   "DESeq2_poscounts_zinbwave",
+                                                   "edgeR_TMM_standard",
+                                                   "edgeR_poscounts_standard",
+                                                   "edgeR_TMM_robustDisp",
+                                                   "edgeR_TMM_zinbwave",
+                                                   "limma_voom_TMM",
+                                                   "limma_voom_TMM_zinbwave",
+                                                   "ALDEx2",
+                                                   "mgsZig_CSS",
+                                                   "corncob_LRT",
+                                                   "corncob_wald",
+                                                   "MAST",
+                                                   "seurat_wilcoxon",
+                                                   "scde"),ordered = TRUE)
+# Compute fraction of discoveries
+pVal_df_FDR <- ddply(.data = pVal_df,.variables = ~ technology + Comparison + Method,.fun = function(x){
+  x$FDR_obs001 <- sum(x$pVal<0.01,na.rm = TRUE)/length(x$pVal[!is.na(x$pVal)])
+  x$FDR_obs005 <- sum(x$pVal<0.05,na.rm = TRUE)/length(x$pVal[!is.na(x$pVal)])
+  x$FDR_obs01 <- sum(x$pVal<0.1,na.rm = TRUE)/length(x$pVal[!is.na(x$pVal)])
+  return(x)
+})
+# stratified by tech, comparison and method. Compute the mean
+pVal_df_FDR_mean <- ddply(.data = pVal_df_FDR,.variables = ~ technology + Comparison + Method,.fun = function(x){
+  colMeans(x[,5:7])
+})
+# melt the dataset and find the difference between fraction and nominal value
+pVal_df_FDR_mean_melted <- melt(pVal_df_FDR_mean)
+divergence_FDR_mean_melted <- ddply(.data = pVal_df_FDR_mean_melted,.variables = ~ technology + Comparison + Method + variable,.fun = function(x){
+  if(x$variable == "FDR_obs001"){
+    sum(abs(x[,"value"]-0.01))/1000
+  } else if(x$variable == "FDR_obs005"){
+    sum(abs(x[,"value"]-0.05))/1000
+  } else if(x$variable == "FDR_obs01"){
+    sum(abs(x[,"value"]-0.1))/1000
+  }
+})
+# rank the methods
+ranked_divergence_FDR_mean_melted <- ddply(divergence_FDR_mean_melted,.variables = ~ technology + Comparison + variable, function(x) rank(x[,"V1"]))
+colnames(ranked_divergence_FDR_mean_melted) <- c("technology","Comparison","variable",levels(divergence_FDR_mean_melted$Method))
+FDR_divergence_summary <- data.frame(method = levels(divergence_FDR_mean_melted$Method), value = apply(ranked_divergence_FDR_mean_melted[,-(1:3)],2,mean))
+
+saveRDS(object = FDR_divergence_summary,file = "../data/summary/FDR_divergence_summary.RDS")
+
+### KS statistics
+# Create a p-value's data frame
+pval_df_list_16S <- lapply(X = Stool_16S,FUN = function(Comparison){
+  ldply(Comparison,function(method){
+    data.frame(pVal = method$pValMat[,1])
+  },.id = "Method")
+}) 
+pval_df_list_WMS <- lapply(X = Stool_WMS,FUN = function(Comparison){
+  ldply(Comparison,function(method){
+    data.frame(pVal = method$pValMat[,1])
+  },.id = "Method")
+}) 
+# Stratify by Comparison
+pval_df_16S <- ldply(pval_df_list_16S,function(x) x, .id = "Comparison")
+pval_df_WMS <- ldply(pval_df_list_WMS,function(x) x, .id = "Comparison")
+pval_df_16S$technology <- "16S"
+pval_df_WMS$technology <- "WMS"
+pval_df <- rbind(pval_df_16S,pval_df_WMS)
+pval_df$Method <- factor(pval_df$Method,levels = c("DESeq2_poscounts",
+                                                   "DESeq2_TMM",
+                                                   "DESeq2_poscounts_zinbwave",
+                                                   "edgeR_TMM_standard",
+                                                   "edgeR_poscounts_standard",
+                                                   "edgeR_TMM_robustDisp",
+                                                   "edgeR_TMM_zinbwave",
+                                                   "limma_voom_TMM",
+                                                   "limma_voom_TMM_zinbwave",
+                                                   "ALDEx2",
+                                                   "mgsZig_CSS",
+                                                   "corncob_LRT",
+                                                   "corncob_wald",
+                                                   "MAST",
+                                                   "seurat_wilcoxon",
+                                                   "scde"),ordered = TRUE)
+
+# Create data frame for empirical and theoretical p-values
+pval_df_qq <- ddply(.data = pval_df,.variables = ~ technology + Comparison + Method,.fun = function(x){
+  x <- x[order(x$pVal),]
+  x$pVal_theorical[!is.na(x$pVal)] <- (1:(sum(!is.na(x$pVal))))/(sum(!is.na(x$pVal)))
+  x$pVal_theorical_rounded[!is.na(x$pVal)] <- round((1:(sum(!is.na(x$pVal))))/(sum(!is.na(x$pVal))),digits = 2)
+  x$KS <- ks.test(x = x$pVal_theorical[!is.na(x$pVal)],y = x$pVal[!is.na(x$pVal)])$statistic
+  x$KS_pVal <- ks.test(x = x$pVal_theorical[!is.na(x$pVal)],y = x$pVal[!is.na(x$pVal)])$p.value
+  #x$KLD <- KLD(x$pVal_theorical[!is.na(x$pVal)],x$pVal[!is.na(x$pVal)])$sum.KLD.px.py
+  #x$KLD_0.1 <- KLD(x$pVal_theorical[!is.na(x$pVal) & x$pVal_theorical < 0.1],x$pVal[!is.na(x$pVal) & x$pVal_theorical < 0.1])$sum.KLD.px.py
+  return(x)
+})
+
+pval_df_KS_summary <- ddply(.data = pval_df_qq,.variables = ~ technology + Comparison + Method,.fun = function(x){
+  colMeans(x[,7:8])})
+
+KS_comp <- ddply(pval_df_KS_summary, ~ technology + Comparison, function(x) rank(x[,4]))
+colnames(KS_comp) <- c("technology","Comparison",levels(pval_df_KS_summary$Method))
+KS_comp_melted <- melt(KS_comp)
+KS_summary <- ddply(KS_comp_melted, ~ variable, function(x) mean(x$value))
+colnames(KS_summary) <- c("method","value")
+
+saveRDS(object = KS_summary,file = "../data/summary/KS_summary.RDS")
+```
 
 
 
