@@ -637,6 +637,39 @@ fig
 dev.off()
 ```
 
+# Summary
+
+Average WMC values between datasets and simulations to rank methods.
+
+```{r}
+concordance_list <- readRDS(file = "../data/concordance_all_datasets.RDS")
+concordance_df_summary <- concordance_list$concordance_df_summary
+
+conc_df <- concordance_list$conc_df
+AUC_WM_df <- conc_df[conc_df$subset == "1vs2" & conc_df$rank == 100,]
+
+summary_rank <- function(AUC_WM_df = AUC_WM_df,tech,diversity){
+  data <- AUC_WM_df[AUC_WM_df$tech == tech & AUC_WM_df$diversity == diversity,]
+  ranking <- ddply(data, ~ comparison, function(x) rank(-x[,"concordance"])*(16/nrow(x)))
+  colnames(ranking)[2:ncol(ranking)] <- as.character(unique(data$method1))
+  return(data.frame("method" = as.character(unique(data$method1)),
+                    "value" = colMeans(ranking[2:ncol(ranking)])))
+}
+
+rank_WM_concordance <- data.frame(rbind(summary_rank(AUC_WM_df,"16S","high"),
+                                        summary_rank(AUC_WM_df,"16S","mid"),
+                                        summary_rank(AUC_WM_df,"16S","low"),
+                                        summary_rank(AUC_WM_df,"WMS","high"),
+                                        summary_rank(AUC_WM_df,"WMS","mid"),
+                                        summary_rank(AUC_WM_df,"WMS","low")))
+
+rank_WM_concordance_summary <- ddply(rank_WM_concordance, .variables = ~ method, function(x) mean(x[,"value"]))
+
+colnames(rank_WM_concordance_summary) <- c("method","value")
+
+saveRDS(file = "../data/summary/WMC_summary.RDS",object = rank_WM_concordance_summary)
+```
+
 
 
 
