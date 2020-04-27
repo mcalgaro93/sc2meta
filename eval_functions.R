@@ -16,7 +16,7 @@ pkgs <- c("edgeR",
           "plyr", 
           "reshape2",
           "ROCR",
-          "samr",
+          #"samr",
           "zinbwave",
           "BiocParallel",
           "AUC",
@@ -27,7 +27,7 @@ pkgs <- c("edgeR",
           "crayon",
           "ALDEx2",
           "corncob",
-          "selbal",
+          #"selbal",
           "mixOmics")
 for(i in pkgs) { library(i, quietly=TRUE, verbose=FALSE, warn.conflicts=FALSE, character.only=TRUE) }
 
@@ -717,10 +717,12 @@ corncobmodel <- function(physeq, design = as.formula("~ grp"), test = c("Wald","
                                   fdr_cutoff = 0.05)
   pValMat <- cbind("rawP" = da_analysis$p, "adjP" = da_analysis$p_fdr)
   rownames(pValMat) = names(da_analysis$p)
-  statInfo <- ldply(da_analysis$all_models,coef)
-  statInfo$coef = c("mu.(Intercept)","mu.grpgrp2","phi.(Intercept)","phi.grpgrp2")
-  statInfo$feature = rep(names(da_analysis$p),each = 4)
-  return(list("pValMat" = pValMat,"statInfo" = statInfo))
+  
+  ## This could give issues with very sparse OTU tables. 
+  # statInfo <- ldply(da_analysis$all_models,coef)
+  # statInfo$coef = c("mu.(Intercept)","mu.grpgrp2","phi.(Intercept)","phi.grpgrp2")
+  # statInfo$feature = rep(names(da_analysis$p),each = 4)
+  return(list("pValMat" = pValMat))#,"statInfo" = statInfo))
 }# END - function: corncob
 
 mixMCmodel <- function(physeq, variable_name = "grp"){
@@ -889,6 +891,23 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10) {
     ## mixMC
     mixMC <- mixMCmodel(physeq)
     cat("mixMC sPLS-DA: DONE\n")
+  })
+  return(returnList)
+}
+
+oneSimRunCorncob <- function(physeq) { 
+  # Prevent NA when converting to integer due to some outlier generation during simulation
+  physeq@otu_table@.Data[which(physeq@otu_table@.Data>.Machine$integer.max)] <- .Machine$integer.max
+  
+  returnList = list()
+  #returnList$physeq = physeq
+  returnList = within(returnList, {
+    ## corncob Wald test
+    corncob_wald <- corncobmodel(physeq,test = "Wald",bootstrap = FALSE)
+    cat("corncob Wald test: DONE\n")
+    ## corncob LRT test
+    corncob_LRT <- corncobmodel(physeq,test = "LRT",bootstrap = FALSE)
+    cat("corncob LRT test: DONE\n")
   })
   return(returnList)
 }
