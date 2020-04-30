@@ -10,20 +10,20 @@ library(ggpubr)
 # The code to compute it, is reported in this RScript and in the other RScripts
 # in the ./power/ directory.
 
-# read_data <- function(main_dir = "Stool_16S_WMS"){
-#   evals_ROC_summary_mean_df <- readRDS(file = paste0("./data/",main_dir,"/evals_ROC_summary_mean_df.RDS"))
-#   evals_ROC_summary_df <- readRDS(file = paste0("./data/",main_dir,"/evals_ROC_summary_df.RDS"))
-#   ### Partial Area Under the ROC curve, from 0 to 0.1
-#   evals_AUC_ROC_tot <- ddply(evals_ROC_summary_df,.variables = ~ method + dataset + distribution + sampleSize + simulation + TPR + foldEffect + compensation + sparsityEffect,
-#                          function(x) sum(x$tpr[x$fpr<=0.1]/10))
-#   
-#   evals_AUC_ROC_tot$method <- factor(evals_AUC_ROC_tot$method,levels = unique(evals_AUC_ROC_tot$method))
-#   evals_AUC_ROC_tot <- evals_AUC_ROC_tot[!is.na(evals_AUC_ROC_tot$method),]
-#   return(evals_AUC_ROC_tot)
-# }
+read_data <- function(main_dir = "Stool_16S_WMS"){
+  evals_ROC_summary_mean_df <- readRDS(file = paste0("./data/",main_dir,"/evals_ROC_summary_mean_df.RDS"))
+  evals_ROC_summary_df <- readRDS(file = paste0("./data/",main_dir,"/evals_ROC_summary_df.RDS"))
+  ### Partial Area Under the ROC curve, from 0 to 0.1
+  evals_AUC_ROC_tot <- ddply(evals_ROC_summary_df,.variables = ~ method + dataset + distribution + sampleSize + simulation + TPR + foldEffect + compensation + sparsityEffect,
+                         function(x) sum(x$tpr[x$fpr<=0.1]/10))
+
+  evals_AUC_ROC_tot$method <- factor(evals_AUC_ROC_tot$method,levels = unique(evals_AUC_ROC_tot$method))
+  evals_AUC_ROC_tot <- evals_AUC_ROC_tot[!is.na(evals_AUC_ROC_tot$method),]
+  return(evals_AUC_ROC_tot)
+}
 # 
-# Stool <- read_data(main_dir = "Stool_16S_WMS")
-# TongueDorsum <- read_data(main_dir = "TD_16S_WMS")
+# Stool <- read_data(main_dir = "Stool_16S_WMG")
+# TongueDorsum <- read_data(main_dir = "TD_16S_WMG")
 # BritoIL <- read_data(main_dir = "BritoIL_Stool_Oral")
 # 
 # ### rbind all evals_AUC_ROC_tot from each dataset evaluated
@@ -31,6 +31,8 @@ library(ggpubr)
 # saveRDS(evals_AUC_ROC_tot,file = "./data/evals_AUC_ROC_tot.RDS")
 
 evals_AUC_ROC_tot <- readRDS(file = "./data/evals_AUC_ROC_tot.RDS")
+evals_AUC_ROC_tot_corncob <- readRDS(file = "./data/evals_AUC_ROC_tot_corncob.RDS")
+evals_AUC_ROC_tot <- rbind(evals_AUC_ROC_tot,evals_AUC_ROC_tot_corncob)
 # evals_AUC_ROC_tot$distribution_sparsityEffect <- paste0(evals_AUC_ROC_tot$distribution,"\n",evals_AUC_ROC_tot$sparsityEffect)
 # evals_AUC_ROC_tot$foldEffect_sampleSize <- paste0(evals_AUC_ROC_tot$foldEffect,"\n",evals_AUC_ROC_tot$sampleSize)
 # evals_AUC_ROC_tot$TPR_sampleSize <- paste0(evals_AUC_ROC_tot$TPR,"\n",evals_AUC_ROC_tot$sampleSize)
@@ -48,8 +50,8 @@ mean_all <- ddply(evals_AUC_ROC_mean, ~ dataset + distribution + sampleSize + TP
 # Function to properly aggregate results for plotting
 
 aggregation <- function(rank_all,evals_AUC_ROC_tot){
-  colnames(rank_all)[11:24] <- levels(evals_AUC_ROC_tot$method)
-  rank_all$technology <- factor(ifelse(grepl(x = rank_all$dataset,pattern = "16S"),"16S","WMG"))
+  colnames(rank_all)[11:26] <- levels(evals_AUC_ROC_tot$method)
+  rank_all$technology <- factor(ifelse(grepl(x = rank_all$dataset,pattern = "16S"),"16S","WMS"))
   
   # rank_agg_distribution <- ddply(rank_all, ~ distribution, function(x) colMeans(x[,9:22]))
   # rank_agg_dataset <- ddply(rank_all, ~ distribution + technology + dataset, function(x) colMeans(x[,9:22]) )
@@ -59,38 +61,38 @@ aggregation <- function(rank_all,evals_AUC_ROC_tot){
   # rank_agg_sparsityEffect <- ddply(rank_all, ~ distribution + technology + sparsityEffect, function(x) colMeans(x[,9:22]) )
   # rank_agg_compensation <- ddply(rank_all, ~ distribution + technology + compensation, function(x) colMeans(x[,9:22]) )
   
-  rank_agg_technology <- ddply(rank_all, ~ distribution + technology, function(x) colMeans(x[,11:24]) )
-  rank_agg_technology <- ddply(rank_agg_technology, ~ technology, function(x) colMeans(x[,3:16]) )
+  rank_agg_technology <- ddply(rank_all, ~ distribution + technology, function(x) colMeans(x[,11:26]) )
+  rank_agg_technology <- ddply(rank_agg_technology, ~ technology, function(x) colMeans(x[,3:18]) )
   
-  rank_agg_distribution <- ddply(rank_all, ~ distribution + technology, function(x) colMeans(x[,11:24]) )
-  rank_agg_distribution <- ddply(rank_agg_distribution, ~ distribution, function(x) colMeans(x[,3:16]) )
+  rank_agg_distribution <- ddply(rank_all, ~ distribution + technology, function(x) colMeans(x[,11:26]) )
+  rank_agg_distribution <- ddply(rank_agg_distribution, ~ distribution, function(x) colMeans(x[,3:18]) )
   
-  rank_agg_dataset <- ddply(rank_all, ~ distribution + dataset, function(x) colMeans(x[,11:24]) )
-  rank_agg_dataset <- ddply(rank_agg_dataset, ~ dataset, function(x) colMeans(x[,3:16]) )
+  rank_agg_dataset <- ddply(rank_all, ~ distribution + dataset, function(x) colMeans(x[,11:26]) )
+  rank_agg_dataset <- ddply(rank_agg_dataset, ~ dataset, function(x) colMeans(x[,3:18]) )
   
-  rank_agg_sampleSize <- ddply(rank_all, ~ distribution + technology + sampleSize, function(x) colMeans(x[,11:24]) )
-  rank_agg_sampleSize <- ddply(rank_agg_sampleSize, ~ sampleSize, function(x) colMeans(x[,4:17]) )
+  rank_agg_sampleSize <- ddply(rank_all, ~ distribution + technology + sampleSize, function(x) colMeans(x[,11:26]) )
+  rank_agg_sampleSize <- ddply(rank_agg_sampleSize, ~ sampleSize, function(x) colMeans(x[,4:19]) )
   
-  rank_agg_foldEffect <- ddply(rank_all, ~ distribution + technology + foldEffect, function(x) colMeans(x[,11:24]) )
-  rank_agg_foldEffect <- ddply(rank_agg_foldEffect, ~ foldEffect, function(x) colMeans(x[,4:17]) )
+  rank_agg_foldEffect <- ddply(rank_all, ~ distribution + technology + foldEffect, function(x) colMeans(x[,11:26]) )
+  rank_agg_foldEffect <- ddply(rank_agg_foldEffect, ~ foldEffect, function(x) colMeans(x[,4:19]) )
   
-  rank_agg_TPR <- ddply(rank_all, ~ distribution + technology + TPR, function(x) colMeans(x[,11:24]) )
-  rank_agg_TPR <- ddply(rank_agg_TPR, ~ TPR, function(x) colMeans(x[,4:17]) )
+  rank_agg_TPR <- ddply(rank_all, ~ distribution + technology + TPR, function(x) colMeans(x[,11:26]) )
+  rank_agg_TPR <- ddply(rank_agg_TPR, ~ TPR, function(x) colMeans(x[,4:19]) )
   
-  rank_agg_sparsityEffect <- ddply(rank_all, ~ distribution + technology + sparsityEffect, function(x) colMeans(x[,11:24]) )
-  rank_agg_sparsityEffect <- ddply(rank_agg_sparsityEffect, ~ sparsityEffect, function(x) colMeans(x[,4:17]) )
+  rank_agg_sparsityEffect <- ddply(rank_all, ~ distribution + technology + sparsityEffect, function(x) colMeans(x[,11:26]) )
+  rank_agg_sparsityEffect <- ddply(rank_agg_sparsityEffect, ~ sparsityEffect, function(x) colMeans(x[,4:19]) )
   
-  rank_agg_compensation <- ddply(rank_all, ~ distribution + technology + compensation, function(x) colMeans(x[,11:24]) )
-  rank_agg_compensation <- ddply(rank_agg_compensation, ~ compensation, function(x) colMeans(x[,4:17]) )
+  rank_agg_compensation <- ddply(rank_all, ~ distribution + technology + compensation, function(x) colMeans(x[,11:26]) )
+  rank_agg_compensation <- ddply(rank_agg_compensation, ~ compensation, function(x) colMeans(x[,4:19]) )
   
-  rank_agg_distribution_sparsityEffect <- ddply(rank_all, ~ distribution + technology + sparsityEffect + distribution_sparsityEffect, function(x) colMeans(x[,11:24]) )
-  rank_agg_distribution_sparsityEffect <- ddply(rank_agg_distribution_sparsityEffect, ~ distribution_sparsityEffect, function(x) colMeans(x[,5:18]) )
+  rank_agg_distribution_sparsityEffect <- ddply(rank_all, ~ distribution + technology + sparsityEffect + distribution_sparsityEffect, function(x) colMeans(x[,11:26]) )
+  rank_agg_distribution_sparsityEffect <- ddply(rank_agg_distribution_sparsityEffect, ~ distribution_sparsityEffect, function(x) colMeans(x[,5:20]) )
   
-  rank_agg_foldEffect_sampleSize <- ddply(rank_all, ~ distribution + technology + foldEffect + sampleSize + foldEffect_sampleSize, function(x) colMeans(x[,11:24]) )
-  rank_agg_foldEffect_sampleSize <- ddply(rank_agg_foldEffect_sampleSize, ~ foldEffect_sampleSize, function(x) colMeans(x[,6:19]) )
+  rank_agg_foldEffect_sampleSize <- ddply(rank_all, ~ distribution + technology + foldEffect + sampleSize + foldEffect_sampleSize, function(x) colMeans(x[,11:26]) )
+  rank_agg_foldEffect_sampleSize <- ddply(rank_agg_foldEffect_sampleSize, ~ foldEffect_sampleSize, function(x) colMeans(x[,6:21]) )
   
-  rank_agg_TPR_sampleSize <- ddply(rank_all, ~ distribution + technology + TPR + sampleSize + TPR_sampleSize, function(x) colMeans(x[,11:24]) )
-  rank_agg_TPR_sampleSize <- ddply(rank_agg_TPR_sampleSize, ~ TPR_sampleSize, function(x) colMeans(x[,6:19]) )
+  rank_agg_TPR_sampleSize <- ddply(rank_all, ~ distribution + technology + TPR + sampleSize + TPR_sampleSize, function(x) colMeans(x[,11:26]) )
+  rank_agg_TPR_sampleSize <- ddply(rank_agg_TPR_sampleSize, ~ TPR_sampleSize, function(x) colMeans(x[,6:21]) )
   
   rank_agg_tot <- list(technology = rank_agg_technology,
                        distribution = rank_agg_distribution,
@@ -140,6 +142,10 @@ bivariate <- c("distribution\nsparsityEffect",
                "foldEffect\nsampleSize",
                "TPR\nsampleSize")
 
+simulations_summary <- ddply(rank_agg_tot_df_melted,.variables = ~ method,function(x) mean(x[,"value"]))
+colnames(simulations_summary) <- c("method","value")
+saveRDS(simulations_summary, file = "./data/summary/simulations_summary.RDS")
+
 ord <- order(ddply(rank_agg_tot_df_melted,.variables = ~ method,function(x) mean(x[,"value"]))$V1)
 
 a1 <- ggplot(data = rank_agg_tot_df_melted[rank_agg_tot_df_melted$sim_variable %in% univariate,], mapping = aes(x = sim_value, y = method, fill = value)) + 
@@ -147,7 +153,7 @@ a1 <- ggplot(data = rank_agg_tot_df_melted[rank_agg_tot_df_melted$sim_variable %
   geom_tile(width = 0.8, height = 0.8) +
   geom_text(aes(label = round(mean*100,digits = 0))) +
   scale_y_discrete(limits = levels(rank_agg_tot_df_melted$method)[ord]) +
-  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(1,14)) +
+  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(1,16)) +
   xlab("Variable") + ylab("Method") + labs(fill = "Mean rank") +
   ggtitle(label = "Simulation framework", subtitle = "Ranked methods by partial-AUROC curve") +
   theme_minimal() +
@@ -160,7 +166,7 @@ a2 <- ggplot(data = rank_agg_tot_df_melted[rank_agg_tot_df_melted$sim_variable %
   facet_grid(~ sim_variable, scales = "free_x", space = "free_x") + 
   geom_tile(width = 0.8, height = 0.8) +
   geom_text(aes(label = round(mean*100,digits = 0))) +
-  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(1,14)) +
+  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(1,16)) +
   scale_y_discrete(limits = levels(rank_agg_tot_df_melted$method)[ord]) +
   xlab("Variable") + ylab("Method") + labs(fill = "Mean rank") +
   theme_minimal() +
@@ -179,7 +185,7 @@ a3 <- ggplot(data = rank_agg_tot_df_melted[rank_agg_tot_df_melted$sim_variable %
   facet_grid(~ sim_variable, scales = "free_x", space = "free_x") + 
   geom_tile(width = 0.8, height = 0.8) +
   geom_text(aes(label = round(mean*100,digits = 0))) +
-  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(1,14)) +
+  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(1,16)) +
   scale_y_discrete(limits = levels(rank_agg_tot_df_melted$method)[ord]) +
   xlab("Variable") + ylab("Method") + labs(fill = "Mean rank") +
   ggtitle(label = "Simulation framework - Couple of variables", subtitle = "Ranked methods by partial-AUROC curve") +

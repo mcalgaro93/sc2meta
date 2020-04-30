@@ -126,12 +126,25 @@ df_creator <- function(evals_file, sim_flow_file, out_dir){
 ### However the final data.frame is available.
 df_creator(evals_file="./data/Stool_16S_WMS_evals_simulations.RDS",
            sim_flow_file="./data/Stool_16S_WMS_simulation_flow.RData",
-           out_dir=".data/Stool_16S_WMS/")
+           out_dir="./data/Stool_16S_WMS/")
 
 df_creator(evals_file="./data/TD_16S_WMS_evals_simulations.RDS",
            sim_flow_file="./data/TD_16S_WMS_simulation_flow.RData",
-           out_dir=".data/TD_16S_WMS/")
+           out_dir="./data/TD_16S_WMS/")
 
 df_creator(evals_file="./data/BritoIL_Stool_Oral_simulation_evals_sim.RDS",
            sim_flow_file="./data/BritoIL_Stool_Oral_simulation_flow.RData",
-           out_dir=".data/BritoIL_Stool_Oral/")
+           out_dir="./data/BritoIL_Stool_Oral/")
+
+### Example of merging after corncob methods evaluations
+df_creator(evals_file="./data/BritoIL_Stool_Oral_split/corncob/evals_sim.RDS",
+           sim_flow_file="./data/BritoIL_Stool_Oral_simulation_flow.RData",
+           out_dir="./data/BritoIL_Stool_Oral_split/corncob/")
+
+df_creator(evals_file="./data/Stool_16S_wMG_split/corncob/evals_sim.RDS",
+           sim_flow_file="./data/Stool_16S_wMG_simulation_flow.RData",
+           out_dir="./data/Stool_16S_wMG_split/corncob/")
+
+df_creator(evals_file="./data/TD_16S_wMG_split/corncob/evals_sim.RDS",
+           sim_flow_file="./data/TD_16S_wMG_simulation_flow.RData",
+           out_dir="./data/TD_16S_wMG_split/corncob/")
