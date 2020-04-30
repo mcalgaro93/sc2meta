@@ -1024,6 +1024,18 @@ oneSimRunGSOwn_time <- function(physeq, true_weights = NULL, epsilon = 1e10) {
        cat("ALDEx2 Wilcoxon test: DONE\n")}
     )
     
+    corncob_wald <- system.time(
+      {## corncob Wald test
+        corncob_wald <- corncobmodel(physeq,test = "Wald",bootstrap = FALSE)
+        cat("corncob Wald test: DONE\n")}
+    )
+    
+    corncob_LRT <- system.time(
+      {## corncob LRT test
+        corncob_LRT <- corncobmodel(physeq,test = "LRT",bootstrap = FALSE)
+        cat("corncob LRT test: DONE\n")}
+    )
+    
     MAST <- system.time(
       {## MAST hurdle models
        MAST <- MASTmodel(physeq)
