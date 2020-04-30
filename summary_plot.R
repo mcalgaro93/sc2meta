@@ -55,3 +55,7 @@ fig <- ggplot(summary_df,mapping = aes(x = Parameter, y = method, fill = value))
         panel.grid = element_blank(),
         axis.ticks = element_blank())
 fig
+
+svg("../fig6_incomplete.svg",height = 11, width = 7)
+fig
+dev.off()
