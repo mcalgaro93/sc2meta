@@ -6,7 +6,7 @@
 #SBATCH --nodes=1                   	# Use one node
 #SBATCH --ntasks=1                  	# Run a single task
 #SBATCH --mem-per-cpu=5gb           	# Memory per processor
-#SBATCH --time=24:00:00             	# Time limit hrs:min:sec
+#SBATCH --time=96:00:00             	# Time limit hrs:min:sec
 #SBATCH --output=array_%A-%a.out    	# Standard output and error log
 #SBATCH --array=1-30                 	# Array range
 
