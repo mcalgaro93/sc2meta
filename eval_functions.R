@@ -725,7 +725,7 @@ corncobmodel <- function(physeq, design = as.formula("~ grp"), test = c("Wald","
   return(list("pValMat" = pValMat))#,"statInfo" = statInfo))
 }# END - function: corncob
 
-mixMCmodel <- function(physeq, variable_name = "grp"){
+mixMCmodel <- function(physeq, variable_name = "grp", grid.keepX = NULL){
   ### force orientation OTUs x samples
   if (!taxa_are_rows(physeq))
   {
@@ -743,7 +743,8 @@ mixMCmodel <- function(physeq, variable_name = "grp"){
   Y = data.frame(physeq@sam_data)[,variable_name]
   
   # first, set a grid of values to test. At least we need 100 values for concordance evaluations.
-  grid.keepX = c(seq(100, ntaxa(physeq), 25))  
+  if(is.null(grid.keepX))
+    grid.keepX = c(seq(100, ntaxa(physeq), 25))  
   
   # tune the sPLS-DA
   set.seed(123)  # for reproducible results for this code
@@ -797,7 +798,7 @@ computeExactWeights <- function (model, x)
   zinbwg
 }
 
-oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10) { 
+oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10, grid.keepX = NULL) { 
   # Prevent NA when converting to integer due to some outlier generation during simulation
   physeq@otu_table@.Data[which(physeq@otu_table@.Data>.Machine$integer.max)] <- .Machine$integer.max
   ## all normalisations
@@ -889,7 +890,7 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10) {
     #cat("NODES Wilcoxon tests: DONE\n")
     
     ## mixMC
-    mixMC <- mixMCmodel(physeq)
+    mixMC <- mixMCmodel(physeq, grid.keepX = grid.keepX)
     cat("mixMC sPLS-DA: DONE\n")
   })
   return(returnList)
