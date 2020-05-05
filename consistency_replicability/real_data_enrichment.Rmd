@@ -1,0 +1,81 @@
+---
+title: 'Enrichment analysis on real data'
+author: "Matteo Calgaro"
+date: 'Compiled: `r format(Sys.Date(), "%d %B, %Y")`'
+output:
+  html_document:
+    code_folding: hide
+    df_print: kable
+    number_sections: no
+    theme: united
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style>
+#TOC {
+  top: 1%;
+  opacity: 0.5;
+}
+#TOC:hover {
+  opacity: 1;
+}
+</style>
+
+```{r setup, eval=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(phyloseq)
+source("../eval_functions.R")
+```
+
+
+# Data loading
+
+Biological knowledge about microbial niches has been collected in literature for some of the datasets used in the concordance analysis:
+<ul>
+  <li>https://www.ncbi.nlm.nih.gov/pubmed/31076212</li>
+  <li>https://github.com/waldronlab/nychanesmicrobiome/blob/master/inst/extdata/biosis.tsv</li>
+</ul>
+
+```{r}
+load(file = "../data/16Sdatasets_for_replicability_filtered.RData")
+load(file = "../data/WMSdatasets_for_replicability_filtered.RData")
+genera_methabolism <- read.table(file = "../data/genera_methabolism.tsv",sep = "\t",header = TRUE)
+```
+
+# Supragingival vs Subgingival Plaque
+
+It is of interest to perform an enrichment analysis on the lists of differential abundant genera to study the aerobic or anaerobic methabolism of genera colonizing supragingival and subgingival plaque.
+
+```{r}
+grp1 = "Subgingival Plaque"
+grp2 = "Supragingival Plaque"
+ps <- ps_list_16S$Subgingival_Supragingival
+
+ps@sam_data$grp = factor(ps@sam_data$HMP_BODY_SUBSITE,levels = c(grp1,grp2),labels = c("grp1","grp2"))
+
+if(!file.exists("../data/supragingival_subgingival_DA.RData")){
+  eval_methods <- oneSimRunGSOwn(physeq = ps,epsilon = 1e14, 
+                                 grid.keepX = c(seq(from = 5,to = 50,by = 5),                                                            seq(from = 75,to = 175,by = 25),
+                                                seq(from = 200,to = ntaxa(ps),by = 50)))
+  save(eval_methods, file = "../data/supragingival_subgingival_DA.RData")
+} else load(file = "../data/supragingival_subgingival_DA.RData")
+```
+
+```{r}
+# MAST, edgeR, limma and DESeq2 based methods have "logFC" column in statInfo matrix.
+# metagenomeSeq has "coef_grp2" column of statInfo matrix which represents the FC.
+# scde has "ce" column of statInfo matrix which represents the conservative estimate of expression-fold change (equals to the min(abs(c(lb, ub))), or 0 if the CI crosses the 0.
+# seurat has "avg_logFC" column in statInfo matrix
+# ALDEx2 has "effect" column in statInfo matrix which represents a vector containing the per-feature effect size (grp1 vs grp2)
+# corncob methods has "mu.grpgrp2" coefficient which represents the FC in statInfo matrix
+
+```
+
+
+
