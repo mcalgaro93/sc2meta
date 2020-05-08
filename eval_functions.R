@@ -602,7 +602,7 @@ Seuratmodel <- function(physeq,design = as.formula("~ grp"),normFacts = c("TMM",
   sobj@ident <- as.factor(groupVar)
   # Gene selection for input to CCA
   sobj <- FindVariableGenes(sobj, do.plot = F)
-  response <- FindMarkers(sobj, ident.1 = "grp1", ident.2 = "grp2",print.bar = FALSE)
+  response <- FindMarkers(sobj, ident.1 = "grp2", ident.2 = "grp1",print.bar = FALSE)
   rawP <- response$p_val
   adjP <- p.adjust(rawP,method = "BH")
   pValMat <- as.matrix(cbind(rawP=rawP,adjP = adjP))
