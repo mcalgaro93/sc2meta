@@ -569,7 +569,7 @@ scdemodel <- function(physeq,design = as.formula("~ grp"))
   # run differential expression tests on all genes.
   ediff <- scde.expression.difference(o.ifm, counts, o.prior, groups  =  groups, n.randomizations  =  100, n.cores  =  1, verbose  =  1)
   
-  rawP <- 2(1-pnorm(abs(ediff$Z)))
+  rawP <- 2*(1-pnorm(abs(ediff$Z)))
   adjP <- p.adjust(rawP,method = "BH")
   pValMat <- as.matrix(cbind(rawP=rawP,adjP = adjP))
   rownames(pValMat) <- rownames(ediff)
