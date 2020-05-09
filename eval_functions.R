@@ -569,11 +569,11 @@ scdemodel <- function(physeq,design = as.formula("~ grp"))
   # run differential expression tests on all genes.
   ediff <- scde.expression.difference(o.ifm, counts, o.prior, groups  =  groups, n.randomizations  =  100, n.cores  =  1, verbose  =  1)
   
-  rawP <- 1-pnorm(ediff$Z)
+  rawP <- 2(1-pnorm(abs(ediff$Z)))
   adjP <- p.adjust(rawP,method = "BH")
   pValMat <- as.matrix(cbind(rawP=rawP,adjP = adjP))
   rownames(pValMat) <- rownames(ediff)
-  statInfo <- ediff[,1:4]
+  statInfo <- ediff
   list("pValMat" = pValMat, "statInfo" = statInfo)
 }# END - function: Single-Cell Differential Expression Analysis scde
 
@@ -890,8 +890,8 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10, grid.kee
     #cat("NODES Wilcoxon tests: DONE\n")
     
     ## mixMC
-    mixMC <- mixMCmodel(physeq, grid.keepX = grid.keepX)
-    cat("mixMC sPLS-DA: DONE\n")
+    # mixMC <- mixMCmodel(physeq, grid.keepX = grid.keepX)
+    # cat("mixMC sPLS-DA: DONE\n")
   })
   return(returnList)
 }
