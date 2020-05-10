@@ -890,8 +890,8 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10, grid.kee
     #cat("NODES Wilcoxon tests: DONE\n")
     
     ## mixMC
-    # mixMC <- mixMCmodel(physeq, grid.keepX = grid.keepX)
-    # cat("mixMC sPLS-DA: DONE\n")
+     mixMC <- mixMCmodel(physeq, grid.keepX = grid.keepX)
+     cat("mixMC sPLS-DA: DONE\n")
   })
   return(returnList)
 }
