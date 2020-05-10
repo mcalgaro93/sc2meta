@@ -457,7 +457,7 @@ For some of the generated subsets in TongueDorsum vs Stool 16S comparisons, corn
 
 ### WMS
 
-"consistency_replicability_WMS_comparison_script.R", "consistency_replicability_WMS_comparison.bash" files, "consistency_replicability_16S_comparison_script.R", "consistency_replicability_16S_comparison.bash", were used to perform DA analysis using job-arrays. 
+"consistency_replicability_WMS_comparison_script.R", "consistency_replicability_WMS_comparison.bash", "consistency_replicability_16S_comparison_script.R", "consistency_replicability_16S_comparison.bash" files were used to perform DA analysis using job-arrays. 
 
 This takes a long time. On a server "songbird_data_preparation.R" run to prepare single dataset for songbird pipelines, "consistency_replicability_songbird.bash" run songbird and "consistency_replicability_aggregation.R" collected all the outputs and created a single .RData file for 16S and WMS data.
 
