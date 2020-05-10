@@ -103,7 +103,7 @@ source("../eval_functions.R")
 if(!file.exists("../data/Stool_16S_mockDA.RDS")){
   Stool_16S_mockDA <- apply(mock_df,1,function(x){
     Stool_16S_WMS$Stool_16S@sam_data$grp <- x
-    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_16S, epsilon = 1e10)
+    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_16S, epsilon = 1e14)
   })
   saveRDS(Stool_16S_mockDA,file = "../data/Stool_16S_mockDA.RDS")
 } else Stool_16S_mockDA <- readRDS("../data/Stool_16S_mockDA.RDS")
@@ -111,7 +111,7 @@ if(!file.exists("../data/Stool_16S_mockDA.RDS")){
 if(!file.exists("../data/Stool_WMS_mockDA.RDS")){
   Stool_WMS_mockDA <- apply(mock_df,1,function(x){
     Stool_16S_WMS$Stool_WMS@sam_data$grp <- x
-    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_WMS, epsilon = 1e10)
+    oneSimRunGSOwn(physeq = Stool_16S_WMS$Stool_WMS, epsilon = 1e14)
   })
   saveRDS(Stool_WMS_mockDA,file = "../data/Stool_WMS_mockDA.RDS")
 } else Stool_WMS_mockDA <- readRDS("../data/Stool_WMS_mockDA.RDS")
