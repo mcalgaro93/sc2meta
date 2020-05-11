@@ -14,8 +14,9 @@ for(i in 1:100){
 names(gingiva_mucosa) <- paste0("Comparison",1:100)
 
 tonguedorsum_stool <- list()
+sequence = c(1:31,101,33:39,102,41:59,103,61:67,104,69:72,105,74:100)
 for(i in 1:100){
-  tonguedorsum_stool[[i]] <- readRDS(paste0("../data/16Ssubsets_replicability_DA_tonguedorsum_stool",i,".RDS"))
+  tonguedorsum_stool[[i]] <- readRDS(paste0("../data/16Ssubsets_replicability_DA_tonguedorsum_stool",sequence[i],".RDS"))
 }
 names(tonguedorsum_stool) <- paste0("Comparison",1:100)
 
@@ -70,18 +71,16 @@ songbird_data_collector <- function(filename,sequence = 1:100){
 }
 
 # 16S
-filename = "./songbird/16S_subgingival_supragingival_Comparison"
+filename = "../consistency_replicability/songbird/16S_subgingival_supragingival_Comparison"
 subgingival_supragingival <- songbird_data_collector(filename)
 
-filename = "./songbird/16S_gingiva_mucosa_Comparison"
+filename = "../consistency_replicability/songbird/16S_gingiva_mucosa_Comparison"
 gingiva_mucosa <- songbird_data_collector(filename)
 
-filename = "./songbird/16S_tonguedorsum_stool_Comparison"
+filename = "../consistency_replicability/songbird/16S_tonguedorsum_stool_Comparison"
 # Since some corncob method failed in some sims, this is the matched sequence to obtain 100 sims
-sequence = c(1:5,101,7:10,120,122,102,14:16,103,18:25,104,27:31,124,33:39,105,
-             41:50,106,52:53,107,55:56,108,58:59,109,61:64,111,66:67,112,69,113,
-             71,115,116,74:80,119,82:100)
-tonguedorsum_stool <- songbird_data_collector(filename, sequence = sequence)
+sequence = c(1:31,101,33:39,102,41:59,103,61:67,104,69:72,105,74:100)
+tonguedorsum_stool <- songbird_data_collector(filename,sequence = sequence)
 
 subsets_replicability_DA_16S_songbird <- list(subgingival_supragingival = subgingival_supragingival,
                                               gingiva_mucosa = gingiva_mucosa,
@@ -90,13 +89,13 @@ subsets_replicability_DA_16S_songbird <- list(subgingival_supragingival = subgin
 saveRDS(subsets_replicability_DA_16S_songbird,file = "../data/16Ssubsets_replicability_DA_songbird.RDS")
 
 # WMS
-filename = "./songbird/WMS_CRC_control_Comparison"
+filename = "../consistency_replicability/songbird/WMS_CRC_control_Comparison"
 CRC_control <- songbird_data_collector(filename)
 
-filename = "./songbird/WMS_schizophrenia_control_Comparison"
+filename = "../consistency_replicability/songbird/WMS_schizophrenia_control_Comparison"
 schizophrenia_control <- songbird_data_collector(filename)
 
-filename = "./songbird/WMS_tonguedorsum_stool_Comparison"
+filename = "../consistency_replicability/songbird/WMS_tonguedorsum_stool_Comparison"
 tonguedorsum_stool <- songbird_data_collector(filename)
 
 WMSsubsets_replicability_DA_songbird <- list(CRC_control = CRC_control,
@@ -152,58 +151,3 @@ subsets_replicability_DA_total_16S <- join_all_methods(method_list = subsets_rep
 
 saveRDS(WMSsubsets_replicability_DA_total,file = "../data/WMSsubsets_replicability_DA_total.RDS")
 saveRDS(subsets_replicability_DA_total_16S,file = "../data/16Ssubsets_replicability_DA_total.RDS")
-
-################ mixMC ##############################
-# mixMC was added lately in the work. Now it is implemented with other methods.
-
-WMSsubsets_replicability_DA_total <- readRDS(file = "../data/WMSsubsets_replicability_DA_total.RDS")
-subsets_replicability_DA_total_16S <- readRDS(file = "../data/16Ssubsets_replicability_DA_total.RDS")
-
-mixMC_data_append <- function(data,filename,sequence = 1:100){
-  comparisons <- data
-  for(i in 1:100){
-    comparison <- comparisons[[i]]
-    mixMC <- readRDS(paste0(filename,sequence[i],"_mixMC.RDS"))
-    comparison$Subset1$mixMC <- mixMC$Subset1
-    comparison$Subset2$mixMC <- mixMC$Subset2
-    comparisons[[i]] <- comparison
-  }
-  names(comparisons) <- paste0("Comparison",1:100)
-  return(comparisons)
-}
-
-# 16S
-filename = "../data/16Ssubsets_replicability_DA_subgingival_supragingival"
-subgingival_supragingival <- mixMC_data_append(data = subsets_replicability_DA_total_16S$subgingival_supragingival, filename)
-
-filename = "../data/16Ssubsets_replicability_DA_gingiva_mucosa"
-gingiva_mucosa <- mixMC_data_append(data = subsets_replicability_DA_total_16S$gingiva_mucosa, filename)
-
-filename = "../data/16Ssubsets_replicability_DA_tonguedorsum_stool"
-# Since some corncob method failed in some sims, this is the matched sequence to obtain 100 sims
-sequence = c(1:5,101,7:10,120,122,102,14:16,103,18:25,104,27:31,124,33:39,105,
-             41:50,106,52:53,107,55:56,108,58:59,109,61:64,111,66:67,112,69,113,
-             71,115,116,74:80,119,82:100)
-tonguedorsum_stool <- mixMC_data_append(data = subsets_replicability_DA_total_16S$tonguedorsum_stool, filename, sequence = sequence)
-
-subsets_replicability_DA_16S_total <- list(subgingival_supragingival = subgingival_supragingival,
-                                              gingiva_mucosa = gingiva_mucosa,
-                                              tonguedorsum_stool = tonguedorsum_stool)
-
-saveRDS(subsets_replicability_DA_16S_total,file = "../data/16Ssubsets_replicability_DA_total.RDS")
-
-# WMS
-filename = "../data/WMSsubsets_replicability_DA_CRC_control"
-CRC_control <- mixMC_data_append(data = WMSsubsets_replicability_DA_total$CRC_control, filename)
-
-filename = "../data/WMSsubsets_replicability_DA_schizophrenia_control"
-schizophrenia_control <- mixMC_data_append(data = WMSsubsets_replicability_DA_total$schizophrenia_control, filename)
-
-filename = "../data/WMSsubsets_replicability_DA_tonguedorsum_stool"
-tonguedorsum_stool <- mixMC_data_append(data = WMSsubsets_replicability_DA_total$tonguedorsum_stool, filename)
-
-WMSsubsets_replicability_DA_total <- list(CRC_control = CRC_control,
-                                             schizophrenia_control = schizophrenia_control,
-                                             tonguedorsum_stool = tonguedorsum_stool)
-
-saveRDS(WMSsubsets_replicability_DA_total,file = "../data/WMSsubsets_replicability_DA_total.RDS")
