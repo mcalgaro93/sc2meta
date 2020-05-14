@@ -632,7 +632,7 @@ abcde <- plot_grid(a5,b5,c5,d5,e5,f5,nrow = 3,ncol = 2,labels = "auto")
 fig <- plot_grid(abcde,a$legend_dendro,nrow = 2,rel_heights = c(1,0.1))
 fig
 
-svg(filename = "../../fig5_rank100.svg", width = 11, height = 12)
+svg(filename = "../../fig5.svg", width = 11, height = 12)
 fig
 dev.off()
 ```
