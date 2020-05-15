@@ -913,6 +913,20 @@ oneSimRunCorncob <- function(physeq) {
   return(returnList)
 }
 
+oneSimRunscde <- function(physeq) { 
+  # Prevent NA when converting to integer due to some outlier generation during simulation
+  physeq@otu_table@.Data[which(physeq@otu_table@.Data>.Machine$integer.max)] <- .Machine$integer.max
+  
+  returnList = list()
+  #returnList$physeq = physeq
+  returnList = within(returnList, {
+    ## SCDE model
+    scde <- scdemodel(physeq)
+    cat("scde test: DONE\n")
+  })
+  return(returnList)
+}
+
 oneSimRunGSOwnFastestMethod <- function(physeq, true_weights = NULL, epsilon = 1e10) { 
   # Prevent NA when converting to integer due to some outlier generation during simulation
   physeq@otu_table@.Data[which(physeq@otu_table@.Data>.Machine$integer.max)] <- .Machine$integer.max
