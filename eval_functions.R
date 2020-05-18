@@ -719,10 +719,10 @@ corncobmodel <- function(physeq, design = as.formula("~ grp"), test = c("Wald","
   rownames(pValMat) = names(da_analysis$p)
   
   ## This could give issues with very sparse OTU tables. 
-  # statInfo <- ldply(da_analysis$all_models,coef)
-  # statInfo$coef = c("mu.(Intercept)","mu.grpgrp2","phi.(Intercept)","phi.grpgrp2")
-  # statInfo$feature = rep(names(da_analysis$p),each = 4)
-  return(list("pValMat" = pValMat))#,"statInfo" = statInfo))
+  statInfo <- ldply(da_analysis$all_models,coef)
+  statInfo$coef = c("mu.(Intercept)","mu.grpgrp2","phi.(Intercept)","phi.grpgrp2")
+  statInfo$feature = rep(names(da_analysis$p),each = 4)
+  return(list("pValMat" = pValMat,"statInfo" = statInfo))
 }# END - function: corncob
 
 mixMCmodel <- function(physeq, variable_name = "grp", grid.keepX = NULL){
@@ -890,8 +890,8 @@ oneSimRunGSOwn <- function(physeq, true_weights = NULL, epsilon = 1e10, grid.kee
     #cat("NODES Wilcoxon tests: DONE\n")
     
     ## mixMC
-    # mixMC <- mixMCmodel(physeq, grid.keepX = grid.keepX)
-    # cat("mixMC sPLS-DA: DONE\n")
+    mixMC <- mixMCmodel(physeq, grid.keepX = grid.keepX)
+    cat("mixMC sPLS-DA: DONE\n")
   })
   return(returnList)
 }
