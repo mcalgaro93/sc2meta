@@ -1,0 +1,669 @@
+---
+title: 'Enrichment analysis on real data'
+author: "Matteo Calgaro"
+date: 'Compiled: `r format(Sys.Date(), "%d %B, %Y")`'
+output:
+  html_document:
+    code_folding: hide
+    df_print: kable
+    number_sections: no
+    theme: united
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style>
+#TOC {
+  top: 1%;
+  opacity: 0.5;
+}
+#TOC:hover {
+  opacity: 1;
+}
+</style>
+
+```{r setup, eval=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+library(phyloseq)
+library(ggforce)
+library(cowplot)
+library(HotLoadings)
+source("../eval_functions.R")
+```
+
+# Data loading
+
+Biological knowledge about microbial niches has been collected in literature for some of the datasets used in the concordance analysis:
+<ul>
+  <li>https://www.ncbi.nlm.nih.gov/pubmed/31076212</li>
+  <li>https://github.com/waldronlab/nychanesmicrobiome/blob/master/inst/extdata/biosis.tsv</li>
+</ul>
+
+```{r, echo=FALSE,warning=FALSE,message=FALSE}
+library(curatedMetagenomicData)
+# Extraction from HMP Project
+HMPData <- curatedMetagenomicData("HMP_2012.metaphlan_bugs_list*",
+                    dryrun = FALSE,
+                    counts = TRUE,
+                    bugs.as.phyloseq = TRUE)
+# Selecting Subgingival
+psA <- subset_samples(HMPData$HMP_2012.metaphlan_bugs_list.oralcavity, body_subsite == "subgingival_plaque")
+# Selecting Supragingival
+psB <- subset_samples(HMPData$HMP_2012.metaphlan_bugs_list.oralcavity, body_subsite == "supragingival_plaque")
+# Keep one sample per individual
+psA <- subset_samples(psA, !duplicated(subjectID))
+psB <- subset_samples(psB, !duplicated(subjectID))
+set.seed(123)
+selected <- sample(1:nsamples(psB),size = nsamples(psA),replace = FALSE)
+sel <- vector(mode = "logical",nsamples(psB))
+sel[selected] <- TRUE
+psB <- subset_samples(psB,sel)
+# Pruning
+psA <- prune_samples(sample_sums(psA) > 10^6, psA)
+psB <- prune_samples(sample_sums(psB) > 10^6, psB)
+
+ps <- merge_phyloseq(psA,psB)
+ps <- filter_taxa(ps,function(x) sum(x>10)>1,1)
+  
+genera_methabolism <- read.table(file = "../data/genera_methabolism.tsv",sep = "\t",header = TRUE)
+```
+
+# Supragingival vs Subgingival Plaque
+
+It is of interest to perform an enrichment analysis on the lists of differential abundant genera to study the aerobic or anaerobic methabolism of genera colonizing supragingival and subgingival plaque.
+
+```{r}
+grp1 = "subgingival_plaque"
+grp2 = "supragingival_plaque"
+#ps <- ps_list_16S$Subgingival_Supragingival
+
+ps@sam_data$grp = factor(ps@sam_data$body_subsite,levels = c(grp1,grp2),labels = c("grp1","grp2"))
+
+# Genera metadata about methabolism
+methabolism_df <- data.frame("Genus" = ps@tax_table@.Data[,"Genus"],row.names = names(ps@tax_table@.Data[,"Genus"]))
+index_meth <- match(methabolism_df$Genus,genera_methabolism$Genera)
+methabolism_df$Meth <- genera_methabolism$Meth[index_meth]
+
+if(!file.exists("../data/supragingival_subgingival_DA_WMS.RData")){
+  eval_methods <- oneSimRunGSOwn(physeq = ps,epsilon = 1e14, 
+                                 grid.keepX = c(seq(from = ntaxa(ps)*0.05,to = ntaxa(ps),by = 10)))
+  ### Songbird data preparation
+  ## OTU table
+  write.table(x = "#OTU ID\t",
+              file = "./songbird/WMS/supragingival_subgingival_otutable.tsv",
+              quote = FALSE,
+              row.names = FALSE, 
+              col.names = FALSE,
+              eol = "")
+  write.table(x = ps@otu_table, append = TRUE,
+              file = "./songbird/WMS/supragingival_subgingival_otutable.tsv",
+              quote = FALSE,
+              sep = "\t",
+              row.names = TRUE,
+              col.names = TRUE)
+  ## Sample data
+  write.table(x = "sampleID\t",
+              file = "./songbird/WMS/supragingival_subgingival_samdata.tsv",
+              quote = FALSE,
+              row.names = FALSE, 
+              col.names = FALSE,
+              eol = "")
+  write.table(x = ps@sam_data, 
+              append = TRUE,
+              file = "./songbird/WMS/supragingival_subgingival_samdata.tsv",
+              quote = FALSE,
+              sep = "\t",
+              row.names = TRUE,
+              col.names = TRUE)
+  
+  ## Then switch to unix bash to run songbird:
+  # module load Anaconda/2019.07
+  # source activate songbird_env
+  # biom convert -i './songbird/supragingival_subgingival_WMS/supragingival_subgingival_otutable.tsv' -o './songbird/supragingival_subgingival_WMS/supragingival_subgingival_otutable.biom' --to-hdf5
+  # songbird multinomial --input-biom './songbird/supragingival_subgingival_WMS/supragingival_subgingival_otutable.biom' \
+  #                      --metadata-file './songbird/supragingival_subgingival_WMS/supragingival_subgingival_samdata.tsv' \
+  #                      --formula "grp" \
+  #                      --summary-dir './songbird/supragingival_subgingival_WMS/'
+  ## This procedure generates the "differentials.tsv" file
+  
+  songbird <- read.table(file = "./songbird/differentials.tsv",header = TRUE)
+  eval_methods$songbird$statInfo <- data.frame(songbird,row.names = songbird$featureid)
+  
+  save(eval_methods, file = "../data/supragingival_subgingival_DA_WMS.RData")
+} else load(file = "../data/supragingival_subgingival_DA_WMS.RData")
+```
+
+Many methods, many outputs:
+<ul>
+  <li>MAST, edgeR, limma and DESeq2 based methods have "logFC" column in statInfo matrix;</li>
+  <li>metagenomeSeq has "coef_grp2" column of statInfo matrix which represents the FC;</li>
+  <li>scde has "ce" column of statInfo matrix which represents the conservative estimate of expression-fold change (equals to the min(abs(c(lb, ub))), or 0 if the CI crosses the 0;</li>
+  <li>seurat has "avg_logFC" column in statInfo matrix;</li>
+  <li>ALDEx2 has "effect" column in statInfo matrix which represents a vector containing the per-feature effect size (grp1 vs grp2);</li>
+  <li>corncob methods has "mu.grpgrp2" coefficient which represents the FC in statInfo matrix;</li>
+  <li>mixMC has the "value.var" column which represents the loading;</li>
+  <li>songbird has the "grp.T.grp2." column which contains the differentials for grp2.</li>
+</ul>
+
+For most methods a \code{pValMat} object is present. We use statInfo information to assess the differential abundance (DA) direction, while we use pValMat to count the number of DA features (corrected p-values).
+
+```{r}
+col_names <- c("logFC","coef_grp2","mu.grpgrp2","ce","avg_logFC","effect","value.var","grp.T.grp2.","coef")
+
+extract_statistics <- function(method, col_names = col_names, alpha = 0.05, percent = 30, methabolism_df = methabolism_df, ps){
+  which_col <- which(col_names %in% colnames(method$statInfo))
+  if("pValMat" %in% names(method)){# for most methods
+    
+    # pValMat investigation for DA identification
+    DA_features_index <- which(method$pValMat[,"adjP"] < alpha)
+    DA_features <- names(DA_features_index)
+    if(is.null(rownames(method$statInfo)))
+      rownames(method$statInfo) <- rownames(method$pValMat)
+    
+  } else if(col_names[which_col] == "grp.T.grp2."){# songbird
+    
+    differentials <- method$statInfo[,c("featureid",col_names[which_col])]
+    ordered_index <- order(-abs(differentials[,col_names[which_col]]))
+    DA_features_index <- ordered_index[1:round(nrow(differentials)*percent/100)] # Top 10% of total taxa
+    DA_features <- differentials[DA_features_index,"featureid"]
+    
+  } else if(col_names[which_col] == "value.var"){# mixMC
+    
+    DA_features <- rownames(method$statInfo)
+    # Graphical inspection of mixMC plotLoadings suggests to change the sign
+    method$statInfo$value.var <- -method$statInfo$value.var
+    
+  } 
+  
+  if(col_names[which_col] == "coef"){# corncob methods have melted statInfo matrix
+    
+    which_col <- which(col_names %in% method$statInfo$coef)
+    method$statInfo <- method$statInfo[method$statInfo$coef == col_names[which_col],c("feature","Estimate")]
+    colnames(method$statInfo) <- c("feature",col_names[which_col])
+    rownames(method$statInfo) <- method$statInfo$feature
+    
+  }
+  
+  if(col_names[which_col] %in% c("coef_grp2","ce")){# metagenomeSeq has the log-odd values which have the opposite sign
+    
+    method$statInfo[,col_names[which_col]] <- -method$statInfo[,col_names[which_col]] 
+    
+  }
+  
+  # statInfo investigation for DA direction
+  direction <- sign(method$statInfo[DA_features,col_names[which_col]])
+  direction <- factor(as.character(direction),levels = c("-1","1"),labels = c("DOWN in Supragingival","UP in Supragingival"))
+  # association with genus methabolism
+  # meth = methabolism_df[DA_features,"Meth"]
+  
+  df <- data.frame("Taxa" = rownames(otu_table(ps)),row.names = rownames(otu_table(ps)))
+  
+  df$DA_features <- factor("non-DA",levels = c("non-DA","DOWN in Supragingival","UP in Supragingival"))
+  df[as.character(DA_features),"DA_features"] <- direction
+  df$Methabolism <- methabolism_df$Meth
+  
+  return(df)
+}
+```
+
+DA features (adjusted p-value < 0.1) are extracted from the methods' list
+
+```{r}
+DA_methods <- lapply(eval_methods,function(method) 
+  extract_statistics(method = method,
+                     col_names = col_names,
+                     alpha = 0.1,percent = 5,
+                     methabolism_df = methabolism_df,ps = ps))
+```
+
+# Contingency tables
+
+Contingency table are computed and graphically represented using Odds ratios and log odds ratios.
+
+```{r}
+create_contingency_tables <- function(method){
+  method$Anaerobic <- "not Anaerobic"
+  method$Anaerobic[method$Methabolism == "Anaerobic"] <- "Anaerobic"
+  
+  method$Aerobic <- "not Aerobic"
+  method$Aerobic[method$Methabolism == "Aerobic"] <- "Aerobic"
+  
+  method$FAnaerobic <- "not F Anaerobic"
+  method$FAnaerobic[method$Methabolism == "F Anaerobic"] <- "F Anaerobic"
+  
+  method$Unassigned  <- "Assigned"
+  method$Unassigned [is.na(method$Methabolism)] <- "Unassigned"
+  
+  method$DOWN <- "not DOWN"
+  method$DOWN[method$DA_features == "DOWN in Supragingival"] <- "DOWN in Supragingival"
+  method$DOWN <- factor(method$DOWN, levels = c("DOWN in Supragingival","not DOWN"), ordered = TRUE)
+  
+  method$UP <- "not UP"
+  method$UP[method$DA_features == "UP in Supragingival"] <- "UP in Supragingival"
+  method$UP <- factor(method$UP, levels = c("UP in Supragingival","not UP"), ordered = TRUE)
+  t_list <- 
+  list(t_anaerobic_DOWN = table(method$DOWN,method$Anaerobic),
+       t_aerobic_DOWN = table(method$DOWN,method$Aerobic),
+       t_fanaerobic_DOWN = table(method$DOWN,method$FAnaerobic),
+       t_unassigned_DOWN  = table(method$DOWN,method$Unassigned),
+       t_anaerobic_UP = table(method$UP,method$Anaerobic),
+       t_aerobic_UP = table(method$UP,method$Aerobic),
+       t_fanaerobic_UP = table(method$UP,method$FAnaerobic),
+       t_unassigned_UP  = table(method$UP,method$Unassigned))
+  
+  t_list <- lapply(t_list,function(tab){
+    if(ncol(tab) == 1){
+      t <- as.table(matrix(c(0,0,0,0),nrow = 2,ncol = 2))
+      rownames(t) <- rownames(tab)
+      colnames(t) <- colnames(tab)
+      t[,colnames(tab)] <- tab
+      tab <- t
+    } 
+    return(tab)
+  })
+  
+  f_list <- lapply(t_list,function(tab){
+    q = tab[1,1] # Number of DA taxa, in the class of interest
+    k = sum(tab[1,]) # Number DA taxa
+    m = sum(tab[,1]) # Number of taxa in the class of interest
+    n = sum(tab[,2]) # Number of taxa not in the class of interest
+    if(q > 0){
+      p_value = phyper(q = q-1, m = m, k = k, n = n,lower.tail = FALSE) 
+    } else p_value = 1
+    f <- fisher.test(tab) # Haldane-Anscombe correction
+    f$p.value = p_value
+    return(f)
+  })
+  names(f_list) <- sapply(names(f_list),gsub,pattern = "t_",replacement = "f_")
+  
+  ci_list <- lapply(t_list,function(tab){
+    1.96*sqrt(sum(1/(tab)))
+  })
+  names(ci_list) <- sapply(names(ci_list),gsub,pattern = "t_",replacement = "ci_")
+  
+  return(c(t_list,f_list,ci_list))
+}
+
+plot_contingency_table <- function(methabolism, method_name, direction){
+  ggplot(data = contingency_table_melted[contingency_table_melted$variable %in% c(methabolism,paste0("not ",methabolism)) & contingency_table_melted$Method == method_name &  grepl(pattern = direction,contingency_table_melted$Direction),],mapping = aes(x = variable, y = Direction, fill = value)) + 
+    geom_tile(width = 0.8, height = 0.8) +
+    geom_label(aes(label = value), fill = "white") +
+    coord_fixed() + 
+    theme_minimal() +
+    scale_x_discrete(position = "top") +
+    ylab(label = element_blank()) +
+    theme(legend.position = "none",
+          axis.title.x = element_blank()) +
+    ggtitle(label = element_blank(),subtitle = method_name)
+}
+```
+
+```{r}
+contingency_table_list <- lapply(DA_methods,create_contingency_tables)
+
+# Extract counts
+contingency_table_DOWN_df <- ldply(contingency_table_list,.fun = function(method){
+  cbind(method$t_aerobic_DOWN,
+        method$t_anaerobic_DOWN,
+        method$t_fanaerobic_DOWN,
+        method$t_unassigned_DOWN)
+},.id = "Method")
+
+contingency_table_UP_df <- ldply(contingency_table_list,.fun = function(method){
+  cbind(method$t_aerobic_UP,
+        method$t_anaerobic_UP,
+        method$t_fanaerobic_UP,
+        method$t_unassigned_UP)
+},.id = "Method")
+
+contingency_table_DOWN_df$Direction <- as.factor(factor(rownames(contingency_table_list$mixMC$t_anaerobic_DOWN)))
+contingency_table_UP_df$Direction <- as.factor(factor(rownames(contingency_table_list$mixMC$t_anaerobic_UP)))
+
+contingency_table_DOWN_melted <- melt(contingency_table_DOWN_df)
+contingency_table_UP_melted <- melt(contingency_table_UP_df)
+
+contingency_table_melted <- rbind(contingency_table_DOWN_melted,
+                                  contingency_table_UP_melted)
+
+contingency_table_melted$Direction <- factor(contingency_table_melted$Direction, levels = c("not DOWN","DOWN in Supragingival","not UP","UP in Supragingival"), ordered = TRUE)
+
+odds_ratio_df_calculation <- function(method, direction, methabolism){
+  vec <- paste(c("ci","f"),methabolism,direction,sep = "_")
+  CI = method[[vec[1]]]
+  f_CI = method[[vec[2]]]$conf.int[1:2]
+  f_est = method[[vec[2]]]$estimate
+  f_pvalue = method[[vec[2]]]$p.value
+  return(data.frame("CI_logodds" = CI,
+                    "LowerBound" = f_CI[1],
+                    "UpperBound" = f_CI[2],
+                    "Odds ratio" = f_est,
+                    "p-value" = f_pvalue,
+                    "Methabolism" = as.character(methabolism),
+                    "Direction" = direction))
+}
+
+Aerobic_UP_odds_ratio_df <- ldply(contingency_table_list,.fun = function(method) odds_ratio_df_calculation(method = method,direction = "UP",methabolism = "aerobic"),.id = "Method")
+Aerobic_DOWN_odds_ratio_df <- ldply(contingency_table_list,.fun = function(method) odds_ratio_df_calculation(method = method,direction = "DOWN",methabolism = "aerobic"),.id = "Method")
+
+Anaerobic_UP_odds_ratio_df <- ldply(contingency_table_list,.fun = function(method) odds_ratio_df_calculation(method = method,direction = "UP",methabolism = "anaerobic"),.id = "Method")
+Anaerobic_DOWN_odds_ratio_df <- ldply(contingency_table_list,.fun = function(method) odds_ratio_df_calculation(method = method,direction = "DOWN",methabolism = "anaerobic"),.id = "Method")
+
+FAnaerobic_UP_odds_ratio_df <- ldply(contingency_table_list,.fun = function(method) odds_ratio_df_calculation(method = method,direction = "UP",methabolism = "fanaerobic"),.id = "Method")
+FAnaerobic_DOWN_odds_ratio_df <- ldply(contingency_table_list,.fun = function(method) odds_ratio_df_calculation(method = method,direction = "DOWN",methabolism = "fanaerobic"),.id = "Method")
+
+Unassigned_UP_odds_ratio_df <- ldply(contingency_table_list,.fun = function(method) odds_ratio_df_calculation(method = method,direction = "UP",methabolism = "unassigned"),.id = "Method")
+Unassigned_DOWN_odds_ratio_df <- ldply(contingency_table_list,.fun = function(method) odds_ratio_df_calculation(method = method,direction = "DOWN",methabolism = "unassigned"),.id = "Method")
+
+odds_ratio_df <- rbind(Aerobic_DOWN_odds_ratio_df,
+                       Aerobic_UP_odds_ratio_df,
+                       Anaerobic_DOWN_odds_ratio_df,
+                       Anaerobic_UP_odds_ratio_df,
+                       FAnaerobic_DOWN_odds_ratio_df,
+                       FAnaerobic_UP_odds_ratio_df,
+                       Unassigned_DOWN_odds_ratio_df,
+                       Unassigned_UP_odds_ratio_df)
+
+odds_ratio_df$Methabolism <- factor(odds_ratio_df$Methabolism, levels = c("aerobic","anaerobic","fanaerobic","unassigned"), labels = c("Aerobic","Anaerobic","F Anaerobic","Unassigned"))
+
+odds_ratio_df$Direction <- factor(odds_ratio_df$Direction, levels = c("DOWN","UP"), labels = c("DOWN in Supragingival","UP in Supragingival"))
+```
+
+## Contingency tables
+
+Many ASVs are not characterized at the genus level:
+
+```{r}
+lapply(DA_methods,function(method) {
+  summary(method[method$DA_features != "non-DA",]$Methabolism)
+})
+```
+
+Considering the following things:
+<ul>
+  <li>the reference group is the **subgingival**;</li>
+  <li>UP-regulated taxa are more abundant in **supragingival** rather than **subgingival** plaque;</li>
+  <li>DOWN-regulated taxa are more abundant in **subgingival** rather than **supragingival** plaque;</li>
+  <li>contingency matrix has the number of DOWN-regulated taxa as first row;</li>
+  <li>an odds-ratio greater than 1 (log-odds ratio > 0) means that the odd between subgingival and supragingival taxa is greater in the considered methabolic class rather than the odd in the other class. </li>
+  <li>we expect positive log-odds ratio for the anaerobic methabolism. This is caused by the presence of more anaerobic bacteria in subgingival plaque rather than supragingival plaque.</li>
+</ul>
+
+```{r, fig.height=7, fig.width=18}
+plot_list_Aerobic_UP <- lapply(names(contingency_table_list),function(method) plot_contingency_table(methabolism = "Aerobic",method_name = method, direction = "UP"))
+plot_list_Aerobic_DOWN <- lapply(names(contingency_table_list),function(method) plot_contingency_table(methabolism = "Aerobic",method_name = method, direction = "DOWN"))
+
+plot_list_Anaerobic_UP <- lapply(names(contingency_table_list),function(method) plot_contingency_table(methabolism = "Anaerobic",method_name = method, direction = "UP"))
+plot_list_Anaerobic_DOWN <- lapply(names(contingency_table_list),function(method) plot_contingency_table(methabolism = "Anaerobic",method_name = method, direction = "DOWN"))
+
+plot_list_FAnaerobic_UP <- lapply(names(contingency_table_list),function(method) plot_contingency_table(methabolism = "F Anaerobic",method_name = method, direction = "UP"))
+plot_list_FAnaerobic_DOWN <- lapply(names(contingency_table_list),function(method) plot_contingency_table(methabolism = "F Anaerobic",method_name = method, direction = "DOWN"))
+
+
+plot_grid(plotlist = plot_list_Aerobic_UP,nrow = 3, ncol = 6)
+plot_grid(plotlist = plot_list_Aerobic_DOWN,nrow = 3, ncol = 6)
+plot_grid(plotlist = plot_list_Anaerobic_UP,nrow = 3, ncol = 6)
+plot_grid(plotlist = plot_list_Anaerobic_DOWN,nrow = 3, ncol = 6)
+plot_grid(plotlist = plot_list_FAnaerobic_UP,nrow = 3, ncol = 6)
+plot_grid(plotlist = plot_list_FAnaerobic_DOWN,nrow = 3, ncol = 6)
+```
+
+## Summary figure
+
+To summarize all the contingency tables, here is presented a barplot where each bar represents the value on the contingency tables in position (1,1).
+
+An hypergeometric test is performed to inspect DA taxa enrichment in the many classes of interest.
+
+```{r, fig.height= 10,fig.width=10}
+data_to_plot <- contingency_table_melted %>% 
+  filter(Direction %in% c("DOWN in Supragingival","UP in Supragingival")) %>%
+  filter(variable %in% c("Aerobic","Anaerobic","F Anaerobic","Unassigned"))
+
+odds_ratio_to_plot <- odds_ratio_df[order(odds_ratio_df[,"Direction"]),]
+data_to_plot$p_value <- odds_ratio_to_plot$p.value
+
+ord <- order(ddply(data_to_plot,.variables = ~ Method, function(met) sum(abs(met[met$Direction %in% c("DOWN in Supragingival","UP in Supragingival"),"value"])))$V1)
+
+# Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+ggplot(data = data_to_plot[data_to_plot$variable != "Unassigned",], aes(x = Method,y = ifelse(Direction == "UP in Supragingival",value,-value),fill = variable)) +
+  geom_col(position = "dodge",alpha = 0.5) + 
+  geom_text(aes(x = Method, y = ifelse(Direction == "UP in Supragingival",value+5,-value-5), label = ifelse(p_value>0.1,"",ifelse(p_value>0.05,"•",ifelse(p_value>0.01,"*",ifelse(p_value>0.001,"**","***")))), color = variable), position = position_dodge(width = 1)) + 
+  geom_hline(aes(yintercept = 0), color = "black") +
+  scale_y_continuous(breaks = seq(-100,100,length.out = 21),labels = c(seq(from = 100,to = 0,length.out = 11),seq(from = 10,to = 100, length.out = 10)),sec.axis = sec_axis(~./50, name = "DA direction",breaks = c(-1,1),labels = c("DOWN in Supragingival","UP in Supragingival"))) +
+  scale_x_discrete(limits = levels(data_to_plot$Method)[ord]) +
+  theme_minimal() +
+  ylab("Number of DA taxa") +
+  scale_fill_manual(values = c(RColorBrewer::brewer.pal(3,"Set1"),"darkgrey")) +
+  scale_color_manual(values = c(RColorBrewer::brewer.pal(3,"Set1"),"darkgrey")) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+        axis.text.y.right = element_text(angle = -90,hjust = 0.5)) +
+  guides(fill = guide_legend(title = "Methabolism",override.aes = aes(label = "")),color = "none") +
+  ggtitle("Number of DA taxa between Supragingival and Subgingival Plaque",subtitle = "Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘•’ 0.1 ‘ ’ 1")
+```
+
+## Log Odds ratio
+
+```{r, fig.width=6, fig.height=7}
+
+
+ord_df <- ddply(odds_ratio_df,.variables = ~ Direction + Method, function(met) met[met$Methabolism == "Aerobic","Odds.ratio"]-met[met$Methabolism == "Anaerobic","Odds.ratio"])
+
+ord <- order(ord_df[ord_df$Direction == "DOWN in Supragingival","V1"])
+
+ggplot(data = odds_ratio_df %>% filter(Direction == "DOWN in Supragingival" & Methabolism %in% c("Aerobic","Anaerobic")) ,mapping = aes(x = Method, y = log(Odds.ratio), color = Methabolism)) + 
+  theme_grey() +
+  theme(axis.text.x = element_text(angle = 90,hjust = 1)) +
+  geom_point(position = position_dodge(width = 0.1)) +
+  geom_errorbar(mapping = aes(ymin = log(Odds.ratio)-CI_logodds, ymax = log(Odds.ratio)+CI_logodds),width = 0.5) +
+  scale_x_discrete(limits = levels(odds_ratio_df$Method)[ord]) +
+  ylab("Log Odds Ratio") +
+  #facet_zoom(ylim = c(-4,4),split = TRUE) +
+  geom_hline(mapping = aes(yintercept = 0), color = "black", lty = 2) +
+  ggtitle(label = "Log Odds Ratio for DOWN regulated taxa", subtitle = "Aerobic and Anaerobic focus")
+
+ord <- order(ord_df[ord_df$Direction == "UP in Supragingival","V1"])
+
+ggplot(data = odds_ratio_df %>% filter(Direction == "UP in Supragingival" & Methabolism %in% c("Aerobic","Anaerobic")) ,mapping = aes(x = Method, y = log(Odds.ratio), color = Methabolism)) + 
+  theme_grey() +
+  theme(axis.text.x = element_text(angle = 90,hjust = 1)) +
+  geom_point(position = position_dodge(width = 0.1)) +
+  geom_errorbar(mapping = aes(ymin = log(Odds.ratio)-CI_logodds, ymax = log(Odds.ratio)+CI_logodds),width = 0.5) +
+  scale_x_discrete(limits = levels(odds_ratio_df$Method)[ord]) +
+  ylab("Log Odds Ratio") +
+  #facet_zoom(ylim = c(-4,4),split = TRUE) +
+  geom_hline(mapping = aes(yintercept = 0), color = "black", lty = 2) +
+  ggtitle(label = "Log Odds Ratio for UP regulated taxa", subtitle = "Aerobic and Anaerobic focus")
+```
+
+## Odds ratio
+
+```{r,fig.width=10, fig.height=7}
+library(ggforce)
+ord_df <- ddply(odds_ratio_df,.variables = ~ Direction + Method, function(met) met[met$Methabolism == "Aerobic","Odds.ratio"]-met[met$Methabolism == "Anaerobic","Odds.ratio"])
+
+ord <- order(ord_df[ord_df$Direction == "DOWN in Supragingival","V1"])
+
+ggplot(data = odds_ratio_df %>% filter(Direction == "DOWN in Supragingival" & Methabolism %in% c("Aerobic","Anaerobic")) ,mapping = aes(x = Method, y = Odds.ratio, color = Methabolism)) + 
+  theme_grey() +
+  theme(axis.text.x = element_text(angle = 90,hjust = 1),
+        axis.text.y.right = element_text(angle = 90,hjust = 0.5),
+        axis.title.y.right = element_text(angle = 90),
+        axis.title.x = element_text(angle = 180)) +
+  geom_point(position = position_dodge(width = 0.1)) +
+  geom_errorbar(mapping = aes(ymin = LowerBound, ymax = UpperBound),width = 0.5) +
+  scale_x_discrete(limits = levels(odds_ratio_df$Method)[ord]) +
+  scale_y_continuous(position = "right") +
+  ylab("Odds Ratio") +
+  facet_zoom(ylim = c(0,5),split = TRUE) +
+  geom_hline(mapping = aes(yintercept = 1), color = "black", lty = 2) +
+  ggtitle(label = "Odds Ratio for UP regulated taxa", subtitle = "Aerobic and Anaerobic focus")
+
+ord <- order(ord_df[ord_df$Direction == "UP in Supragingival","V1"])
+
+ggplot(data = odds_ratio_df %>% filter(Direction == "UP in Supragingival" & Methabolism %in% c("Aerobic","Anaerobic")) ,mapping = aes(x = Method, y = Odds.ratio, color = Methabolism)) + 
+  theme_grey() +
+  theme(axis.text.x = element_text(angle = 90,hjust = 1),
+        axis.text.y.right = element_text(angle = 90,hjust = 0.5),
+        axis.title.y.right = element_text(angle = 90),
+        axis.title.x = element_text(angle = 180)) +
+  geom_point(position = position_dodge(width = 0.1)) +
+  geom_errorbar(mapping = aes(ymin = LowerBound, ymax = UpperBound),width = 0.5) +
+  scale_x_discrete(limits = levels(odds_ratio_df$Method)[ord]) +
+  scale_y_continuous(position = "right") +
+  ylab("Odds Ratio") +
+  facet_zoom(ylim = c(0,5),split = TRUE) +
+  geom_hline(mapping = aes(yintercept = 1), color = "black", lty = 2) +
+  ggtitle(label = "Odds Ratio for UP regulated taxa", subtitle = "Aerobic and Anaerobic focus")
+```
+
+## Mutual findings plot
+
+Each method finds some DA taxa. In this plot we inspect wether they share the same findings or not.
+
+```{r}
+DA_methods_df <- ldply(DA_methods,function(met) met %>% filter(DA_features != "non-DA"),.id = "Method")
+DA_methods_df$Compositional <- factor(DA_methods_df$Method,
+                                      levels = c("mixMC",
+                                                "seurat_wilcoxon",
+                                                "scde",
+                                                "MAST",
+                                                "corncob_LRT",
+                                                "corncob_wald",
+                                                "ALDEx2",
+                                                "mgsZig_CSS",
+                                                "DESeq2_TMM",
+                                                "DESeq2_poscounts_zinbwave",
+                                                "DESeq2_poscounts",
+                                                "limma_voom_TMM_zinbwave",
+                                                "limma_voom_TMM",
+                                                "edgeR_poscounts_standard",
+                                                "edgeR_TMM_zinbwave",
+                                                "edgeR_TMM_standard",
+                                                "edgeR_TMM_robustDisp"),
+                                      labels = c("Compositional","Non-Compositional","Non-Compositional","Non-Compositional","Non-Compositional","Non-Compositional",
+                                                 "Compositional","Non-Compositional","Non-Compositional","Non-Compositional","Non-Compositional","Non-Compositional",
+                                                 "Non-Compositional","Non-Compositional","Non-Compositional","Non-Compositional","Non-Compositional"))
+
+DA_methods_df$Tech <- factor(DA_methods_df$Method,
+                                      levels = c("mixMC",
+                                                "seurat_wilcoxon",
+                                                "scde",
+                                                "MAST",
+                                                "corncob_LRT",
+                                                "corncob_wald",
+                                                "ALDEx2",
+                                                "mgsZig_CSS",
+                                                "DESeq2_TMM",
+                                                "DESeq2_poscounts_zinbwave",
+                                                "DESeq2_poscounts",
+                                                "limma_voom_TMM_zinbwave",
+                                                "limma_voom_TMM",
+                                                "edgeR_poscounts_standard",
+                                                "edgeR_TMM_zinbwave",
+                                                "edgeR_TMM_standard",
+                                                "edgeR_TMM_robustDisp"),
+                                      labels = c("metagenomics","sc-RNAseq","sc-RNAseq","sc-RNAseq","metagenomics","metagenomics",
+                                                 "metagenomics","metagenomics","RNAseq","sc-RNAseq","RNAseq","sc-RNAseq",
+                                                 "RNAseq","RNAseq","sc-RNAseq","RNAseq","RNAseq"))
+
+length(unique(DA_methods_df$Taxa))
+
+taxa_by_method <- ddply(DA_methods_df,.variables = ~ Taxa, .fun = function(taxa) nrow(taxa))
+colnames(taxa_by_method) <- c("Taxa","Number of methods")
+ggplot(taxa_by_method,aes(x = `Number of methods`)) +
+  geom_bar(width = 0.9) +
+  theme_minimal() + 
+  scale_x_continuous(breaks = 1:18) +
+  xlab("Number of Methods") + 
+  ggtitle("# of methods per taxa")
+
+taxa_by_method <- ddply(DA_methods_df,.variables = ~ Taxa + Compositional, .fun = function(taxa) nrow(taxa))
+colnames(taxa_by_method) <- c("Taxa","Compositional","Number of methods")
+ggplot(taxa_by_method,aes(x = `Number of methods`)) +
+  geom_bar(width = 0.9) + 
+  facet_grid(~ Compositional,scales = "free_x") +
+  theme_minimal() +
+  xlab("Number of Methods") + 
+  ggtitle("# of methods per taxa",subtitle = "By compositionality")
+
+taxa_by_method <- ddply(DA_methods_df,.variables = ~ Taxa + Tech, .fun = function(taxa) nrow(taxa))
+colnames(taxa_by_method) <- c("Taxa","Tech","Number of methods")
+ggplot(taxa_by_method,aes(x = `Number of methods`)) +
+  geom_bar(width = 0.9) + 
+  facet_grid(~ Tech,scales = "free_x") +
+  theme_minimal() +
+  xlab("Number of Methods") + 
+  ggtitle("# of methods per taxa",subtitle = "By application")
+
+```
+
+389 Unique taxa out of 892 are found as DA from one or more method.However only a minority are mutually found by all of them. 
+
+```{r}
+mutual_findings <- function(DA_methods_df, min_num = 5, DA_feat, Meth, compositional = c("Compositional","Non-Compositional"), tech = c("metagenomics","sc-RNAseq","RNAseq")){
+  
+  DA_methods_df <- DA_methods_df %>% filter(Tech %in% tech & Compositional %in% compositional)
+  
+  taxa_by_method <- ddply(DA_methods_df,.variables = ~ Taxa, .fun = function(taxa) nrow(taxa))
+  taxa_to_plot <- taxa_by_method %>% filter(V1 >= min_num)
+  
+  df_to_plot <- DA_methods_df %>% filter(Taxa %in% taxa_to_plot$Taxa) %>% filter(Methabolism %in% Meth & DA_features %in% DA_feat)
+  
+  y_lab <- ddply(df_to_plot,.variables = ~ Taxa, .fun = function(taxa) nrow(taxa))
+  ord_y <- order(y_lab$V1,decreasing = TRUE)
+  
+  x_lab <- ddply(df_to_plot,.variables = ~ Method, .fun = function(met) nrow(met))
+  ord_x <- order(x_lab$V1,decreasing = TRUE)
+  
+  last_name <- HotLoadings.names(ps,format = "last")
+  
+  ggplot(data = df_to_plot,aes(x = Method, y = Taxa, fill = DA_features)) + 
+    geom_tile(width = 0.9, height = 0.9) + 
+    facet_grid(~ Methabolism) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+    scale_y_discrete(limits = y_lab$Taxa[ord_y]) +
+    scale_x_discrete(limits = x_lab$Method[ord_x]) + 
+    coord_equal() +
+    ggtitle(label = paste0("Mutual findings for methods - ",Meth," methabolism Taxa"),subtitle = paste0("Features identified in ",min_num," or more ",ifelse(length(compositional)==2,"",paste0(" ", compositional)),ifelse(length(tech)==3,"",paste0(" ",tech))," Methods"))
+}
+```
+
+### Aerobic
+
+```{r, fig.width=10, fig.height=8}
+mutual_findings(DA_methods_df,min_num = 3,DA_feat = c("DOWN in Supragingival","UP in Supragingival"),Meth = "Aerobic")
+
+mutual_findings(DA_methods_df,min_num = 2,DA_feat = c("DOWN in Supragingival","UP in Supragingival"),Meth = "Aerobic",tech = "sc-RNAseq",compositional = "Non-Compositional")
+
+mutual_findings(DA_methods_df,min_num = 2,DA_feat = c("DOWN in Supragingival","UP in Supragingival"),Meth = "Aerobic",tech = "metagenomics",compositional = "Non-Compositional")
+
+mutual_findings(DA_methods_df,min_num = 3,DA_feat = c("DOWN in Supragingival","UP in Supragingival"),Meth = "Aerobic",tech = "RNAseq",compositional = "Non-Compositional")
+```
+
+### Anaerobic
+
+```{r, fig.width=10, fig.height=14}
+mutual_findings(DA_methods_df,min_num = 8,DA_feat = c("DOWN in Supragingival","UP in Supragingival"),Meth = "Anaerobic")
+```
+
+### F Anaerobic
+
+```{r, fig.width=10, fig.height=10}
+mutual_findings(DA_methods_df,min_num = 3,DA_feat = c("DOWN in Supragingival","UP in Supragingival"),Meth = "F Anaerobic")
+```
+
+
+
+
+
+
+
+
+
+
