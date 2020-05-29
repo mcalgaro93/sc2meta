@@ -7,6 +7,8 @@ cols <- c(
 "#C0E845",
 # 2 corncob
 brewer.pal(n = 9, "Blues")[c(3,5)],
+# 2 corncob with bootstrap only in enrichment analysis
+brewer.pal(n = 9, "Blues")[c(6,8)],
 # songbird
 brewer.pal(n = 9, "Blues")[7],
 # mixMC
@@ -26,6 +28,8 @@ brewer.pal(n = 11, "RdGy")[c(8,10)])
 methods <- c("ALDEx2",
              "corncob_LRT",
              "corncob_wald",
+             "corncob_LRT_bootstrap",
+             "corncob_wald_bootstrap",
              "songbird",
              "mixMC",
              "DESeq2_poscounts",
