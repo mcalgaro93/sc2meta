@@ -32,7 +32,10 @@ read_data <- function(main_dir = "Stool_16S_WMS"){
 
 evals_AUC_ROC_tot <- readRDS(file = "./data/evals_AUC_ROC_tot.RDS")
 evals_AUC_ROC_tot_corncob <- readRDS(file = "./data/evals_AUC_ROC_tot_corncob.RDS")
+evals_AUC_ROC_tot_scde <- readRDS(file = "./data/evals_AUC_ROC_tot_scde.RDS")
+
 evals_AUC_ROC_tot <- rbind(evals_AUC_ROC_tot,evals_AUC_ROC_tot_corncob)
+evals_AUC_ROC_tot[evals_AUC_ROC_tot$method == "scde",] <- evals_AUC_ROC_tot_scde
 # evals_AUC_ROC_tot$distribution_sparsityEffect <- paste0(evals_AUC_ROC_tot$distribution,"\n",evals_AUC_ROC_tot$sparsityEffect)
 # evals_AUC_ROC_tot$foldEffect_sampleSize <- paste0(evals_AUC_ROC_tot$foldEffect,"\n",evals_AUC_ROC_tot$sampleSize)
 # evals_AUC_ROC_tot$TPR_sampleSize <- paste0(evals_AUC_ROC_tot$TPR,"\n",evals_AUC_ROC_tot$sampleSize)
@@ -148,12 +151,14 @@ saveRDS(simulations_summary, file = "./data/summary/simulations_summary.RDS")
 
 ord <- order(ddply(rank_agg_tot_df_melted,.variables = ~ method,function(x) mean(x[,"value"]))$V1)
 
+rank_agg_tot_df_melted$value <- rank_agg_tot_df_melted$value/length(levels(rank_agg_tot_df_melted$method))
+
 a1 <- ggplot(data = rank_agg_tot_df_melted[rank_agg_tot_df_melted$sim_variable %in% univariate,], mapping = aes(x = sim_value, y = method, fill = value)) + 
   facet_grid(~ sim_variable, scales = "free_x", space = "free_x") + 
   geom_tile(width = 0.8, height = 0.8) +
   geom_text(aes(label = round(mean*100,digits = 0))) +
   scale_y_discrete(limits = levels(rank_agg_tot_df_melted$method)[ord]) +
-  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(1,16)) +
+  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(0,1)) +
   xlab("Variable") + ylab("Method") + labs(fill = "Mean rank") +
   ggtitle(label = "Simulation framework", subtitle = "Ranked methods by partial-AUROC curve") +
   theme_minimal() +
@@ -166,7 +171,7 @@ a2 <- ggplot(data = rank_agg_tot_df_melted[rank_agg_tot_df_melted$sim_variable %
   facet_grid(~ sim_variable, scales = "free_x", space = "free_x") + 
   geom_tile(width = 0.8, height = 0.8) +
   geom_text(aes(label = round(mean*100,digits = 0))) +
-  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(1,16)) +
+  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(0,1)) +
   scale_y_discrete(limits = levels(rank_agg_tot_df_melted$method)[ord]) +
   xlab("Variable") + ylab("Method") + labs(fill = "Mean rank") +
   theme_minimal() +
@@ -185,7 +190,7 @@ a3 <- ggplot(data = rank_agg_tot_df_melted[rank_agg_tot_df_melted$sim_variable %
   facet_grid(~ sim_variable, scales = "free_x", space = "free_x") + 
   geom_tile(width = 0.8, height = 0.8) +
   geom_text(aes(label = round(mean*100,digits = 0))) +
-  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(1,16)) +
+  scale_fill_distiller(palette = "RdYlBu",guide = "colorbar",limits = c(0,1)) +
   scale_y_discrete(limits = levels(rank_agg_tot_df_melted$method)[ord]) +
   xlab("Variable") + ylab("Method") + labs(fill = "Mean rank") +
   ggtitle(label = "Simulation framework - Couple of variables", subtitle = "Ranked methods by partial-AUROC curve") +
@@ -193,11 +198,15 @@ a3 <- ggplot(data = rank_agg_tot_df_melted[rank_agg_tot_df_melted$sim_variable %
   theme(axis.text.x = element_text(angle = 45,hjust = 1),
         axis.ticks = element_blank(),
         panel.grid = element_blank(),
-        legend.position = "none",
+        legend.position = "right",
         strip.background = element_blank()
         # strip.text = element_text(color = "white")
   ) +
   panel_border(colour = "black",size = 1,linetype = 2)
 
 fig <- plot_grid(a1,a2,align = "h",rel_widths = c(2,1.1))
+fig <- plot_grid(fig,get_legend(a3),nrow = 1,rel_widths = c(1,0.1))
+
+svg("../fig_simulation_ranking.svg",width = 19, height = 8)
 fig
+dev.off()
