@@ -1,0 +1,83 @@
+---
+title: 'Computational time evaluation on real data'
+author: "Matteo Calgaro"
+date: 'Compiled: `r format(Sys.Date(), "%d %B, %Y")`'
+output:
+  html_document:
+    code_folding: hide
+    df_print: kable
+    number_sections: no
+    theme: united
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style>
+#TOC {
+  top: 1%;
+  opacity: 0.5;
+}
+#TOC:hover {
+  opacity: 1;
+}
+</style>
+
+```{r setup, eval=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=FALSE,message=FALSE,warning=FALSE}
+
+source("../eval_functions.R")
+source("../colors_17.R")
+library(phyloseq)
+library(HotLoadings)
+library(cowplot)
+library(dplyr)
+library(ggforce)
+
+```
+
+# Data loading
+
+```{r}
+load(file = "../data/16Sdatasets_for_replicability_filtered.RData")
+```
+
+# Supragingival vs Subgingival Plaque
+
+It is of interest to perform a time evaluation
+
+```{r}
+grp1 = "Subgingival Plaque"
+grp2 = "Supragingival Plaque"
+ps <- ps_list_16S$Subgingival_Supragingival
+
+ps@sam_data$grp = factor(ps@sam_data$HMP_BODY_SUBSITE,levels = c(grp1,grp2),labels = c("grp1","grp2"))
+
+if(!file.exists("../data/supragingival_subgingival_DA_time.RData")){
+  eval_methods <- oneSimRunGSOwn_time(physeq = ps,epsilon = 1e14, 
+                                      grid.keepX = c(seq(from = ntaxa(ps)*0.05,to = ntaxa(ps),by = 10)))
+  eval_methods$songbird <- eval_methods$mixMC
+  eval_methods$songbird[c("user","system","elapsed")] <- 4*60+33
+  eval_methods <- eval_methods[-which(names(eval_methods) == "physeq")]
+  save(eval_methods, file = "../data/supragingival_subgingival_DA_time.RData")
+} else load(file = "../data/supragingival_subgingival_DA_time.RData")
+
+```
+
+# Extract elapsed time
+
+```{r}
+real_data_time_summary <- ldply(eval_methods,function(met) met["elapsed"],.id = "Method")
+colnames(real_data_time_summary) <- c("method","value")
+real_data_time_summary$value <- rank(real_data_time_summary$value)
+
+saveRDS(real_data_time_summary, file = "../data/summary/real_data_time_summary.RDS")
+```
+
+
+
+
