@@ -701,7 +701,7 @@ ALDEx2model <- function(physeq,design = as.formula("~ grp"),normFacts = c("TMM",
   return(list("pValMat" = pValMat,"statInfo" = statInfo))
 }# END - function: ALDEx2
 
-corncobmodel <- function(physeq, design = as.formula("~ grp"), test = c("Wald","LRT"), bootstrap = c("TRUE","FALSE")){
+corncobmodel <- function(physeq, design = as.formula("~ grp"), test = c("Wald","LRT"), bootstrap = c("TRUE","FALSE"), B = 1000){
   ### force orientation OTUs x samples
   if (!taxa_are_rows(physeq))
   {
@@ -714,7 +714,8 @@ corncobmodel <- function(physeq, design = as.formula("~ grp"), test = c("Wald","
                                   phi.formula_null = design,
                                   test = test, boot = bootstrap,
                                   data = physeq,
-                                  fdr_cutoff = 0.05)
+                                  fdr_cutoff = 0.05,
+                                  B = B)
   pValMat <- cbind("rawP" = da_analysis$p, "adjP" = da_analysis$p_fdr)
   rownames(pValMat) = names(da_analysis$p)
   
@@ -945,7 +946,7 @@ oneSimRunGSOwnFastestMethod <- function(physeq, true_weights = NULL, epsilon = 1
   return(returnList)
 }
 
-oneSimRunGSOwn_time <- function(physeq, true_weights = NULL, epsilon = 1e10) { 
+oneSimRunGSOwn_time <- function(physeq, true_weights = NULL, epsilon = 1e10, grid.keepX = NULL) { 
   # Prevent NA when converting to integer due to some outlier generation during simulation
   physeq@otu_table@.Data[which(physeq@otu_table@.Data>.Machine$integer.max)] <- .Machine$integer.max
   ## all normalisations
@@ -1067,6 +1068,12 @@ oneSimRunGSOwn_time <- function(physeq, true_weights = NULL, epsilon = 1e10) {
       {## Seurat 
         seurat_wilcoxon <- Seuratmodel(physeq)
         cat("Seurat Wilcoxon tests: DONE\n")}
+    )
+    
+    mixMC <- system.time(
+      {## mixMC
+        mixMC <- mixMCmodel(physeq)
+        cat("mixMC: DONE\n")}
     )
   })
   return(returnList)
