@@ -166,7 +166,9 @@ Where *nasal_cavity*, *stool* and *vagina* dataset of AllWMSData_list contain th
 
 # Model estimation
 
-Zero-Inflated Negative Binomial (ZINB), Negative Binomial (NB), Truncated Gaussian hurdle model (MAST), Zero-inflated Gaussian (ZIG), Dirichlet-Multinomial (DM)
+Zero-Inflated Negative Binomial (ZINB), Negative Binomial (NB), Truncated Gaussian hurdle model (MAST), Zero-inflated Gaussian (ZIG), Dirichlet-Multinomial (DM).
+
+(This files could be >200MB, not reported)
 
 ```{r, echo=FALSE,message=FALSE,warning=FALSE}
 source("additional_functions.R")
