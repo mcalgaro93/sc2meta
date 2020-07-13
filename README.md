@@ -1,6 +1,8 @@
 # sc2meta
 Methods used in the article _Assessment of statistical methods from single cell, bulk RNA-seq and metagenomics applied to microbiome data_.
 
+[![DOI](https://zenodo.org/badge/227668672.svg)](https://zenodo.org/badge/latestdoi/227668672)
+
 Here we present several aspects of the microbiome data analysis, evaluating:
 <ul>
   <li> the Goodness Of Fit (GOF) between real data and the distributional assumptions of some differential abundance detection methods; </li>
