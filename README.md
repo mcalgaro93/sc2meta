@@ -1,5 +1,5 @@
 # sc2meta
-Methods used in the article _Assessment of single cell RNA-seq statistical methods on microbiome data_.
+Methods used in the article _Assessment of statistical methods from single cell, bulk RNA-seq and metagenomics applied to microbiome data_.
 
 Here we present several aspects of the microbiome data analysis, evaluating:
 <ul>
